@@ -36,6 +36,17 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
     }
   };
 
+  const timelineStages = Array.isArray(order.timeline) && order.timeline.length > 0
+    ? order.timeline
+    : [
+        { status: 'placed' as const, label: 'Order Placed', timestamp: order.createdAt || 'Done', note: `PIN: ${order.verificationPin}. Pickup: ${order.pickupPoint?.name || 'Campus Station'}`, isCompleted: order.status !== 'placed', isCurrent: order.status === 'placed' },
+        { status: 'confirmed' as const, label: 'Payment Confirmed', timestamp: order.status !== 'placed' ? 'Done' : 'Pending', note: 'Escrow payment held securely', isCompleted: ['dropped_off', 'ready_for_pickup', 'picked_up', 'completed'].includes(order.status), isCurrent: order.status === 'confirmed' },
+        { status: 'dropped_off' as const, label: 'Seller Drop-off', timestamp: ['dropped_off', 'ready_for_pickup', 'picked_up', 'completed'].includes(order.status) ? 'Done' : 'Pending', note: 'Seller hands textbook to booth', isCompleted: ['ready_for_pickup', 'picked_up', 'completed'].includes(order.status), isCurrent: order.status === 'dropped_off' },
+        { status: 'ready_for_pickup' as const, label: 'Ready for Pickup', timestamp: ['ready_for_pickup', 'picked_up', 'completed'].includes(order.status) ? 'Done' : 'Pending', note: 'Book verified by booth staff', isCompleted: ['picked_up', 'completed'].includes(order.status), isCurrent: order.status === 'ready_for_pickup' },
+        { status: 'picked_up' as const, label: 'Book Picked Up', timestamp: ['picked_up', 'completed'].includes(order.status) ? 'Done' : 'Pending', note: 'Buyer verifies with PIN', isCompleted: order.status === 'completed', isCurrent: order.status === 'picked_up' },
+        { status: 'completed' as const, label: 'Transaction Completed', timestamp: order.status === 'completed' ? 'Done' : 'Pending', note: 'Funds disbursed to seller', isCompleted: order.status === 'completed', isCurrent: order.status === 'completed' },
+      ];
+
   return (
     <div className="space-y-6">
       {/* Pickup Verification Security Box */}
@@ -66,12 +77,12 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
           <MapPin className="w-4 h-4 text-[#ef4d23] shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="font-semibold text-[#0b0f1a]">
-              {order.pickupPoint.name}
+              {order.pickupPoint?.name || 'Central Campus Library Desk'}
             </p>
-            <p className="text-neutral-500">{order.pickupPoint.locationDetail}</p>
+            <p className="text-neutral-500">{order.pickupPoint?.locationDetail || 'Ground floor verification counter'}</p>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600 pt-1">
-              <span>⏰ {order.pickupPoint.operatingHours}</span>
-              <span>📞 {order.pickupPoint.contactPerson} ({order.pickupPoint.phone})</span>
+              <span>⏰ {order.pickupPoint?.operatingHours || 'Sun - Thu: 9:00 AM - 4:30 PM'}</span>
+              <span>📞 {order.pickupPoint?.contactPerson || 'Campus Desk Agent'} ({order.pickupPoint?.phone || '+880 1711-000000'})</span>
             </div>
           </div>
         </div>
@@ -129,7 +140,7 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
         </h4>
 
         <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-2.5 before:bottom-2.5 before:w-0.5 before:bg-[#e5e5e5]">
-          {order.timeline.map((stage, idx) => {
+          {timelineStages.map((stage, idx) => {
             const isFinished = stage.isCompleted;
             const isCurrent = stage.isCurrent;
 

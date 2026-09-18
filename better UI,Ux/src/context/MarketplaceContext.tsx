@@ -13,7 +13,7 @@ import {
   StudentUser,
   VerificationRequest,
 } from '../types';
-import { DEPARTMENTS, SEMESTERS, CONDITIONS, PICKUP_POINTS as FALLBACK_PICKUP_POINTS, INITIAL_BOOKS, INITIAL_BOOK_REQUESTS } from '../data/mockData';
+import { DEPARTMENTS, SEMESTERS, CONDITIONS, PICKUP_POINTS as FALLBACK_PICKUP_POINTS, INITIAL_BOOKS, INITIAL_BOOK_REQUESTS, INITIAL_ORDERS } from '../data/mockData';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { User } from '@supabase/supabase-js';
@@ -367,7 +367,18 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return [];
     }
   });
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>(() => {
+    try {
+      const saved = localStorage.getItem('local_orders');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return INITIAL_ORDERS;
+    } catch {
+      return INITIAL_ORDERS;
+    }
+  });
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [disputes, setDisputes] = useState<DisputeReport[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -472,7 +483,15 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
           mapDbOrderToOrder(row as unknown as Record<string, unknown>, book, buyerUser, sellerUser, pickup)
         );
       }
-      setOrders(ordersWithDetails);
+      setOrders((prev) => {
+        const dbIds = new Set(ordersWithDetails.map((o) => o.id));
+        const remainingLocals = prev.filter((o) => !dbIds.has(o.id));
+        const merged = [...ordersWithDetails, ...remainingLocals];
+        try {
+          localStorage.setItem('local_orders', JSON.stringify(merged));
+        } catch {}
+        return merged;
+      });
       return;
     }
 
@@ -509,7 +528,15 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         mapDbOrderToOrder(rowRecord, book, buyerUser, sellerUser, pickup)
       );
     }
-    setOrders(ordersWithDetails);
+    setOrders((prev) => {
+      const dbIds = new Set(ordersWithDetails.map((o) => o.id));
+      const remainingLocals = prev.filter((o) => !dbIds.has(o.id));
+      const merged = [...ordersWithDetails, ...remainingLocals];
+      try {
+        localStorage.setItem('local_orders', JSON.stringify(merged));
+      } catch {}
+      return merged;
+    });
   }, [user, books, pickupPoints, currentUser]);
 
   // ── Fetch notifications ──────────────────────────────────────────────────
@@ -1049,35 +1076,86 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       newOrderId = `ord-local-${Date.now()}`;
     }
 
+    const localBuyer: StudentUser = {
+      ...currentUser,
+      id: user?.id || currentUser.id || 'usr-buyer-current',
+      email: user?.email || currentUser.email || 'student@illdoor.edu.bd',
+    };
+
     const localOrder: Order = {
       id: newOrderId,
       orderNumber: orderNum,
       book: targetBook,
-      buyer: currentUser,
+      buyer: localBuyer,
       seller: targetBook.seller,
       price: targetBook.sellingPrice,
-      platformFee: 0,
-      sellerEarnings: targetBook.sellingPrice,
-      paymentMethod: 'bKash Escrow',
       status: 'placed',
-      stepIndex: 0,
-      createdAt: 'Just now',
-      verificationPin: generatedPin,
       pickupPoint: chosenPickup,
-      statusHistory: [
+      paymentState: 'Paid (Escrow)',
+      verificationPin: generatedPin,
+      createdAt: 'Just now',
+      updatedAt: 'Just now',
+      timeline: [
         {
           status: 'placed',
           label: 'Order Placed',
           timestamp: 'Just now',
-          completed: true,
-          current: true,
           note: `PIN: ${generatedPin}. Handover at ${chosenPickup.name}.`,
+          isCompleted: false,
+          isCurrent: true,
+        },
+        {
+          status: 'confirmed',
+          label: 'Payment Confirmed',
+          timestamp: 'Pending',
+          note: 'Escrow payment held securely',
+          isCompleted: false,
+          isCurrent: false,
+        },
+        {
+          status: 'dropped_off',
+          label: 'Seller Drop-off',
+          timestamp: 'Pending',
+          note: `Seller will deposit book at ${chosenPickup.name}`,
+          isCompleted: false,
+          isCurrent: false,
+        },
+        {
+          status: 'ready_for_pickup',
+          label: 'Ready for Pickup',
+          timestamp: 'Pending',
+          note: `Collect at ${chosenPickup.locationDetail}`,
+          isCompleted: false,
+          isCurrent: false,
+        },
+        {
+          status: 'picked_up',
+          label: 'Book Picked Up',
+          timestamp: 'Pending',
+          note: 'PIN verification on collection',
+          isCompleted: false,
+          isCurrent: false,
+        },
+        {
+          status: 'completed',
+          label: 'Transaction Completed',
+          timestamp: 'Pending',
+          note: 'Funds released to seller',
+          isCompleted: false,
+          isCurrent: false,
         },
       ],
     };
 
-    setOrders((prev) => [localOrder, ...prev]);
+    setOrders((prev) => {
+      const next = [localOrder, ...prev.filter((o) => o.id !== newOrderId)];
+      try {
+        localStorage.setItem('local_orders', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     setBooks((prev) => prev.map((b) => b.id === bookId ? { ...b, availability: 'Reserved' } : b));
+    setSelectedOrderId(newOrderId);
 
     await addNotification({
       title: 'Order Placed Successfully!',

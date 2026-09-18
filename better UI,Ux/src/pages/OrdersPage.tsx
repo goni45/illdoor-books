@@ -37,7 +37,7 @@ export const OrdersPage: React.FC = () => {
     hasReviewedOrder,
   } = useMarketplace();
 
-  if (!user) {
+  if (!user && orders.length === 0) {
     return (
       <div className="bg-white rounded-3xl border border-[#e5e5e5] p-8 max-w-lg mx-auto text-center space-y-4 my-12 shadow-sm">
         <div className="w-14 h-14 rounded-2xl bg-[#ef4d23]/10 text-[#ef4d23] flex items-center justify-center mx-auto">
@@ -77,22 +77,41 @@ export const OrdersPage: React.FC = () => {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   // Filter orders by tab
+  const myIds = [currentUser.id, user?.id].filter(Boolean);
   const displayedOrders = orders.filter((order) => {
-    if (filterTab === 'purchases') return order.buyer.id === currentUser.id;
-    if (filterTab === 'sales') return order.seller.id === currentUser.id;
+    if (filterTab === 'purchases') {
+      return (
+        myIds.includes(order.buyer.id) ||
+        (currentUser.email && order.buyer.email === currentUser.email) ||
+        (currentUser.name && order.buyer.name === currentUser.name)
+      );
+    }
+    if (filterTab === 'sales') {
+      return (
+        myIds.includes(order.seller.id) ||
+        (currentUser.email && order.seller.email === currentUser.email) ||
+        (currentUser.name && order.seller.name === currentUser.name)
+      );
+    }
     return true;
   });
 
   const selectedOrder = orders.find((o) => o.id === selectedOrderId) || displayedOrders[0];
 
+  const isBuyer = selectedOrder
+    ? myIds.includes(selectedOrder.buyer.id) || selectedOrder.buyer.email === currentUser.email
+    : false;
+  const isSeller = selectedOrder
+    ? myIds.includes(selectedOrder.seller.id) || selectedOrder.seller.email === currentUser.email
+    : false;
+
   // An order may be cancelled by either participant until the book is handed over
   const canCancel = selectedOrder
-    ? (selectedOrder.buyer.id === currentUser.id || selectedOrder.seller.id === currentUser.id) &&
-      (selectedOrder.status === 'placed' || selectedOrder.status === 'confirmed')
+    ? (isBuyer || isSeller) && (selectedOrder.status === 'placed' || selectedOrder.status === 'confirmed')
     : false;
 
   const reviewCounterparty = selectedOrder
-    ? selectedOrder.buyer.id === currentUser.id
+    ? isBuyer
       ? selectedOrder.seller
       : selectedOrder.buyer
     : null;
