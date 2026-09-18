@@ -1,13 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const defaultSupabaseUrl = 'https://zpzjhiagtsvmzomvyxdv.supabase.co';
+const defaultSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwempoaWFndHN2bXpvbXZ5eGR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1Nzg4NjIsImV4cCI6MjEwNTE1NDg2Mn0.DWnNpFZnsVdW1CaNUGnLp8GyupNmX2OjLDNnXooy8Fk';
+
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || defaultSupabaseUrl;
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || defaultSupabaseAnonKey;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Check your .env.local file.');
+  console.warn('Supabase configuration missing. Falling back to default settings.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(supabaseUrl || defaultSupabaseUrl, supabaseAnonKey || defaultSupabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,

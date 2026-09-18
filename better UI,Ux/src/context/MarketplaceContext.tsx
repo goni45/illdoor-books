@@ -414,7 +414,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     if (!booksData || booksData.length === 0) {
-      setBooks([]);
+      setBooks(INITIAL_BOOKS);
       return;
     }
 
@@ -422,6 +422,17 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const images = ((row.book_images as Array<{ url: string }>) || []).map((img) => img.url);
       return mapDbBookToListing(row as unknown as Record<string, unknown>, row.profiles as Record<string, unknown> | null, images);
     });
+
+    // Ensure Admin VIP listing is preserved at top rank if not yet in database
+    const hasAdminVIP = mapped.some((b) => b.isAdminListing || b.seller?.isAdmin);
+    if (!hasAdminVIP) {
+      const vipSample = INITIAL_BOOKS.find((b) => b.isAdminListing);
+      if (vipSample) {
+        setBooks([vipSample, ...mapped]);
+        return;
+      }
+    }
+
     setBooks(mapped);
   }, []);
 
