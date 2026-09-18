@@ -1,0 +1,1123 @@
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import {
+  ActiveView,
+  BookListing,
+  DisputeReport,
+  FilterState,
+  NotificationItem,
+  Order,
+  OrderStatus,
+  PickupPoint,
+  Review,
+  StudentUser,
+  VerificationRequest,
+} from '../types';
+import { DEPARTMENTS, SEMESTERS, CONDITIONS, PICKUP_POINTS as FALLBACK_PICKUP_POINTS, INITIAL_BOOKS } from '../data/mockData';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../hooks/useAuth';
+import { User } from '@supabase/supabase-js';
+
+export { DEPARTMENTS, SEMESTERS, CONDITIONS };
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+function mapDbBookToListing(row: Record<string, unknown>, sellerProfile: Record<string, unknown> | null, images: string[]): BookListing {
+  const seller: StudentUser = sellerProfile ? {
+    id: sellerProfile.id as string,
+    name: sellerProfile.full_name as string,
+    email: sellerProfile.email as string,
+    studentId: sellerProfile.student_roll as string,
+    institute: sellerProfile.institute as string,
+    department: sellerProfile.department as string,
+    semester: sellerProfile.semester as string,
+    avatar: (sellerProfile.avatar_url as string) ||
+      `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(sellerProfile.full_name as string)}&backgroundColor=ef4d23`,
+    isVerified: (sellerProfile.is_verified as boolean) || false,
+    joinedDate: new Date(sellerProfile.created_at as string).toLocaleDateString('en-BD', { year: 'numeric', month: 'long' }),
+    rating: parseFloat((sellerProfile.rating as number)?.toString() || '0') || 0,
+    totalSales: (sellerProfile.total_sales as number) || 0,
+    totalPurchases: (sellerProfile.total_purchases as number) || 0,
+    phone: sellerProfile.phone as string | undefined,
+    rollNumber: sellerProfile.student_roll as string,
+    isAdmin: Boolean(sellerProfile.is_admin),
+  } : {
+    id: row.seller_id as string, name: 'Unknown Seller', email: '', studentId: '',
+    institute: '', department: '', semester: '', avatar: '', isVerified: false,
+    joinedDate: '', rating: 0, totalSales: 0, totalPurchases: 0,
+  };
+
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    author: row.author as string,
+    edition: row.edition as string | undefined,
+    subjectCode: row.subject_code as string,
+    subjectName: row.subject_name as string,
+    department: row.department as string,
+    semester: row.semester as string,
+    condition: row.condition as BookListing['condition'],
+    conditionDetails: row.condition_details as string,
+    originalPrice: row.original_price as number,
+    sellingPrice: row.selling_price as number,
+    savings: row.savings as number,
+    images: images.length > 0 ? images : ['https://placehold.co/600x400/f3f4f6/9ca3af?text=No+Image'],
+    availability: row.availability as BookListing['availability'],
+    seller,
+    pickupPointId: row.pickup_point_id as string,
+    pickupPointName: row.pickup_point_name as string,
+    createdAt: new Date(row.created_at as string).toLocaleDateString('en-BD', { day: 'numeric', month: 'short', year: 'numeric' }),
+    viewsCount: row.views_count as number,
+    isbn: row.isbn as string | undefined,
+  };
+}
+
+function mapDbOrderToOrder(row: Record<string, unknown>, book: BookListing, buyer: StudentUser, seller: StudentUser, pickup: PickupPoint): Order {
+  const status = row.status as OrderStatus;
+  const statuses: OrderStatus[] = ['placed', 'confirmed', 'dropped_off', 'ready_for_pickup', 'picked_up', 'completed'];
+  const currentIdx = statuses.indexOf(status);
+
+  const statusLabels: Partial<Record<OrderStatus, { label: string; note: string }>> = {
+    placed: { label: 'Order Placed', note: `PIN: ${row.verification_pin}. Pickup: ${pickup.name}` },
+    confirmed: { label: 'Payment Confirmed', note: `৳${row.price} secured in escrow` },
+    dropped_off: { label: 'Seller Drop-off', note: `Book delivered to ${pickup.name}` },
+    ready_for_pickup: { label: 'Ready for Pickup', note: `Book at ${pickup.locationDetail}` },
+    picked_up: { label: 'Book Picked Up', note: 'PIN verified, physical handover done' },
+    completed: { label: 'Transaction Completed', note: 'Funds disbursed to seller' },
+    cancelled: { label: 'Cancelled', note: 'Order cancelled' },
+    disputed: { label: 'Disputed', note: 'Under review' },
+  };
+  const labels = statusLabels;
+
+  return {
+    id: row.id as string,
+    orderNumber: row.order_number as string,
+    book,
+    buyer,
+    seller,
+    price: row.price as number,
+    status,
+    pickupPoint: pickup,
+    paymentState: row.payment_state as Order['paymentState'],
+    verificationPin: row.verification_pin as string,
+    cancelReason: (row.cancel_reason as string) || undefined,
+    createdAt: new Date(row.created_at as string).toLocaleDateString('en-BD', { day: 'numeric', month: 'short', year: 'numeric' }),
+    updatedAt: new Date(row.updated_at as string).toLocaleDateString('en-BD', { day: 'numeric', month: 'short', year: 'numeric' }),
+    timeline: statuses.map((s, i) => ({
+      status: s,
+      timestamp: i <= currentIdx ? 'Done' : 'Pending',
+      label: labels[s]?.label || s,
+      note: labels[s]?.note || '',
+      isCompleted: i < currentIdx,
+      isCurrent: i === currentIdx,
+    })),
+  };
+}
+
+// ─── Context types ───────────────────────────────────────────────────────────
+
+interface MarketplaceContextType {
+  activeView: ActiveView;
+  setActiveView: (view: ActiveView) => void;
+  selectedBookId: string | null;
+  setSelectedBookId: (id: string | null) => void;
+  selectedOrderId: string | null;
+  setSelectedOrderId: (id: string | null) => void;
+  navigateToBook: (bookId: string) => void;
+  navigateToOrder: (orderId: string) => void;
+
+  currentUser: StudentUser;
+  setCurrentUser: React.Dispatch<React.SetStateAction<StudentUser>>;
+  books: BookListing[];
+  pickupPoints: PickupPoint[];
+  wishlistIds: string[];
+  orders: Order[];
+  notifications: NotificationItem[];
+  disputes: DisputeReport[];
+
+  dataLoading: boolean;
+  refreshBooks: () => Promise<void>;
+  refreshOrders: () => Promise<void>;
+  refreshNotifications: () => Promise<void>;
+
+  toggleWishlist: (bookId: string) => Promise<void>;
+  isWishlisted: (bookId: string) => boolean;
+  addBookListing: (newBook: Omit<BookListing, 'id' | 'seller' | 'createdAt' | 'viewsCount' | 'savings'>, imageFiles?: File[]) => Promise<string>;
+  updateBookStatus: (bookId: string, availability: BookListing['availability']) => Promise<void>;
+  deleteBookListing: (bookId: string) => Promise<void>;
+  createOrder: (bookId: string, pickupPointId: string) => Promise<string>;
+  verifyPickupPin: (orderId: string, pin: string) => Promise<{ success: boolean; message: string }>;
+  markNotificationAsRead: (id: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
+  fileDispute: (orderNumber: string, bookTitle: string, reason: string, details: string) => Promise<void>;
+  resolveDispute: (disputeId: string, status: DisputeReport['status']) => Promise<void>;
+
+  // ── Reviews (completed transactions only) ────────────────────────────────
+  /** Reviews the signed-in user has RECEIVED (shown on their profile) */
+  reviews: Review[];
+  /** Reviews the signed-in user has WRITTEN (used to lock the review form) */
+  reviewsGiven: Review[];
+  refreshReviews: () => Promise<void>;
+  submitReview: (orderId: string, rating: number, comment: string) => Promise<{ success: boolean; message: string }>;
+  hasReviewedOrder: (orderId: string) => boolean;
+
+  // ── Student ID verification (admin approved) ────────────────────────────
+  verificationRequest: VerificationRequest | null;
+  verificationQueue: VerificationRequest[];
+  refreshVerification: () => Promise<void>;
+  submitVerificationRequest: (data: {
+    studentRoll: string;
+    studentRegNo: string;
+    idCardFile: File | null;
+  }) => Promise<{ success: boolean; message: string }>;
+  decideVerification: (requestId: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>;
+
+  // ── Order cancellation ────────────────────────────────────────────────
+  cancelOrder: (orderId: string, reason: string) => Promise<{ success: boolean; message: string }>;
+
+  /** True when the signed-in profile has the is_admin flag */
+  isAdmin: boolean;
+
+  filters: FilterState;
+  setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
+  resetFilters: () => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  applyQuickSubjectSearch: (codeOrName: string) => void;
+
+  filteredBooks: BookListing[];
+  unreadNotificationCount: number;
+
+  user: User | null;
+  isAuthenticated: boolean;
+  isAuthModalOpen: boolean;
+  authModalTab: 'login' | 'register';
+  authModalMessage?: string;
+  openAuthModal: (tab?: 'login' | 'register', message?: string) => void;
+  closeAuthModal: () => void;
+  signOut: () => Promise<void>;
+}
+
+const defaultFilters: FilterState = {
+  search: '', department: 'All Departments', semester: 'All Semesters',
+  subjectCode: '', condition: 'All Conditions', availability: 'All',
+  minPrice: 0, maxPrice: 2000, sortBy: 'recommended',
+};
+
+/** Maps a DB review row (with joined reviewer + book) to the app's Review shape */
+function mapDbReviewToReview(row: Record<string, unknown>): Review {
+  const reviewer = (row.reviewer ?? {}) as Record<string, unknown>;
+  const book = (row.book ?? {}) as Record<string, unknown>;
+  const department = [reviewer.department, reviewer.semester].filter(Boolean).join(' • ');
+
+  return {
+    id: row.id as string,
+    reviewerName: (reviewer.full_name as string) || 'Illdoor Student',
+    reviewerDepartment: department || 'Polytechnic Student',
+    rating: row.rating as number,
+    comment: (row.comment as string) || '',
+    date: new Date(row.created_at as string).toLocaleDateString('en-BD', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }),
+    bookTitle: (book.title as string) || 'Campus textbook',
+    orderId: row.order_id as string,
+    reviewerId: row.reviewer_id as string,
+    revieweeId: row.reviewee_id as string,
+    bookId: row.book_id as string,
+    // The DB trigger only accepts reviews attached to a completed order
+    isVerifiedTransaction: true,
+  };
+}
+
+/** Maps a DB verification request row to the app's VerificationRequest shape */
+function mapDbVerificationRequest(row: Record<string, unknown>): VerificationRequest {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    studentRoll: row.student_roll as string,
+    studentRegNo: (row.student_reg_no as string) || '',
+    idCardPath: (row.id_card_path as string) ?? null,
+    status: row.status as VerificationRequest['status'],
+    adminNote: (row.admin_note as string) || '',
+    createdAt: new Date(row.created_at as string).toLocaleDateString('en-BD', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }),
+    reviewedAt: (row.reviewed_at as string) ?? undefined,
+  };
+}
+
+const MarketplaceContext = createContext<MarketplaceContextType | undefined>(undefined);
+
+export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { profile, user, signOut, refreshProfile } = useAuth();
+  const isAuthenticated = Boolean(user && user.id);
+  /** Admin flag comes from the DB — the client can only read it */
+  const isAdmin = Boolean(profile?.isAdmin);
+
+  const [activeView, setActiveView] = useState<ActiveView>('home');
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+
+  // Auth modal management for guests
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
+  const [authModalMessage, setAuthModalMessage] = useState<string | undefined>();
+
+  const openAuthModal = useCallback((tab: 'login' | 'register' = 'login', message?: string) => {
+    setAuthModalTab(tab);
+    setAuthModalMessage(message);
+    setIsAuthModalOpen(true);
+  }, []);
+
+  const closeAuthModal = useCallback(() => {
+    setIsAuthModalOpen(false);
+    setAuthModalMessage(undefined);
+  }, []);
+
+  // Close auth modal on successful login
+  useEffect(() => {
+    if (user) {
+      setIsAuthModalOpen(false);
+    }
+  }, [user]);
+
+  const [currentUser, setCurrentUser] = useState<StudentUser>(() =>
+    profile ?? {
+      id: '', name: '', email: '', studentId: '', institute: '',
+      department: '', semester: '', avatar: '', isVerified: false,
+      joinedDate: '', rating: 0, totalSales: 0, totalPurchases: 0,
+    }
+  );
+
+  const [books, setBooks] = useState<BookListing[]>(INITIAL_BOOKS);
+  const [pickupPoints, setPickupPoints] = useState<PickupPoint[]>(FALLBACK_PICKUP_POINTS);
+  const [wishlistIds, setWishlistIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('local_wishlist');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [disputes, setDisputes] = useState<DisputeReport[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsGiven, setReviewsGiven] = useState<Review[]>([]);
+  const [verificationRequest, setVerificationRequest] = useState<VerificationRequest | null>(null);
+  const [verificationQueue, setVerificationQueue] = useState<VerificationRequest[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Sync currentUser from auth profile
+  useEffect(() => {
+    if (profile) setCurrentUser(profile);
+  }, [profile]);
+
+  // ── Fetch pickup points ──────────────────────────────────────────────────
+  useEffect(() => {
+    supabase.from('pickup_points').select('*').then(({ data }) => {
+      if (data && data.length > 0) {
+        setPickupPoints(data.map((p) => ({
+          id: p.id, name: p.name, campus: p.campus,
+          locationDetail: p.location_detail, operatingHours: p.operating_hours,
+          contactPerson: p.contact_person, phone: p.phone,
+        })));
+      }
+    });
+  }, []);
+
+  // ── Fetch books ──────────────────────────────────────────────────────────
+  const refreshBooks = useCallback(async () => {
+    const { data: booksData, error } = await supabase
+      .from('books')
+      .select('*, profiles(*), book_images(url)')
+      .order('created_at', { ascending: false });
+
+    if (error || !booksData || booksData.length === 0) {
+      setBooks(INITIAL_BOOKS);
+      return;
+    }
+
+    const mapped = booksData.map((row) => {
+      const images = ((row.book_images as Array<{ url: string }>) || []).map((img) => img.url);
+      return mapDbBookToListing(row as unknown as Record<string, unknown>, row.profiles as Record<string, unknown> | null, images);
+    });
+    setBooks(mapped.length > 0 ? mapped : INITIAL_BOOKS);
+  }, []);
+
+  // ── Fetch orders ─────────────────────────────────────────────────────────
+  const refreshOrders = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('orders')
+      .select('*')
+      .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
+      .order('created_at', { ascending: false });
+
+    if (!data) return;
+
+    const ordersWithDetails: Order[] = [];
+    for (const row of data) {
+      const book = books.find((b) => b.id === row.book_id);
+      if (!book) continue;
+      const pickup = pickupPoints.find((p) => p.id === row.pickup_point_id) ?? pickupPoints[0];
+      ordersWithDetails.push(
+        mapDbOrderToOrder(
+          row as unknown as Record<string, unknown>,
+          book, book.seller, currentUser, pickup
+        )
+      );
+    }
+    setOrders(ordersWithDetails);
+  }, [user, books, pickupPoints, currentUser]);
+
+  // ── Fetch notifications ──────────────────────────────────────────────────
+  const refreshNotifications = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (!data) return;
+    setNotifications(data.map((n) => ({
+      id: n.id, title: n.title, message: n.message,
+      type: n.type as NotificationItem['type'], read: n.read,
+      timestamp: new Date(n.created_at).toLocaleDateString('en-BD', { day: 'numeric', month: 'short' }),
+      linkRoute: n.link_route as ActiveView | undefined, linkId: n.link_id ?? undefined,
+    })));
+  }, [user]);
+
+  // ── Fetch wishlist ───────────────────────────────────────────────────────
+  const refreshWishlist = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from('wishlist').select('book_id').eq('user_id', user.id);
+    if (data) {
+      const dbIds = data.map((w) => w.book_id);
+      let localIds: string[] = [];
+      try {
+        const saved = localStorage.getItem('local_wishlist');
+        if (saved) localIds = JSON.parse(saved);
+      } catch {
+        localIds = [];
+      }
+      const combined = Array.from(new Set([...dbIds, ...localIds]));
+      setWishlistIds(combined);
+      try {
+        localStorage.removeItem('local_wishlist');
+      } catch {
+        // ignore
+      }
+    }
+  }, [user]);
+
+  // ── Fetch disputes (admins see every dispute on campus) ──────────────────
+  const refreshDisputes = useCallback(async () => {
+    if (!user) return;
+    let query = supabase.from('disputes').select('*').order('created_at', { ascending: false });
+    if (!isAdmin) {
+      query = query.eq('reported_by', user.id);
+    }
+    const { data } = await query;
+    if (!data) return;
+    setDisputes(data.map((d) => ({
+      id: d.id, orderNumber: d.order_number, bookTitle: d.book_title,
+      reportedBy: currentUser.name, reason: d.reason, details: d.details,
+      status: d.status as DisputeReport['status'],
+      date: new Date(d.created_at).toLocaleDateString('en-BD', { day: 'numeric', month: 'short' }),
+      priority: d.priority as DisputeReport['priority'],
+    })));
+  }, [user, currentUser.name, isAdmin]);
+
+  // ── Fetch reviews (received + written by the signed-in student) ──────────
+  const refreshReviews = useCallback(async () => {
+    if (!user) {
+      setReviews([]);
+      setReviewsGiven([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*, reviewer:profiles!reviews_reviewer_id_fkey(full_name, department, semester), book:books(title)')
+      .or(`reviewee_id.eq.${user.id},reviewer_id.eq.${user.id}`)
+      .order('created_at', { ascending: false });
+
+    if (error || !data) {
+      console.warn('Review fetch failed:', error?.message);
+      return;
+    }
+
+    const mapped = data.map((row) => mapDbReviewToReview(row as unknown as Record<string, unknown>));
+    setReviews(mapped.filter((r) => r.revieweeId === user.id));
+    setReviewsGiven(mapped.filter((r) => r.reviewerId === user.id));
+  }, [user]);
+
+  // ── Fetch student ID verification (own request + admin queue) ────────────
+  const refreshVerification = useCallback(async () => {
+    if (!user) {
+      setVerificationRequest(null);
+      setVerificationQueue([]);
+      return;
+    }
+
+    const { data: mine } = await supabase
+      .from('verification_requests')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const mapped = mine ? mapDbVerificationRequest(mine as unknown as Record<string, unknown>) : null;
+    setVerificationRequest(mapped);
+    setCurrentUser((prev) => ({ ...prev, verificationStatus: mapped?.status }));
+
+    if (!isAdmin) {
+      setVerificationQueue([]);
+      return;
+    }
+
+    const { data: queue } = await supabase
+      .from('verification_requests')
+      .select('*, profile:profiles!verification_requests_user_id_fkey(full_name, institute, department, semester)')
+      .order('created_at', { ascending: true });
+
+    setVerificationQueue((queue ?? []).map((row) => {
+      const record = row as unknown as Record<string, unknown>;
+      const prof = (record.profile ?? {}) as Record<string, unknown>;
+      return {
+        ...mapDbVerificationRequest(record),
+        userName: (prof.full_name as string) || 'Student',
+        userInstitute: prof.institute as string,
+        userDepartment: prof.department as string,
+        userSemester: prof.semester as string,
+      };
+    }));
+  }, [user, isAdmin]);
+
+  // ── Initial load ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    const loadAll = async () => {
+      setDataLoading(true);
+      await refreshBooks();
+      setDataLoading(false);
+    };
+    loadAll();
+  }, [refreshBooks]);
+
+  useEffect(() => {
+    if (user && books.length >= 0) {
+      refreshOrders();
+      refreshWishlist();
+      refreshNotifications();
+      refreshDisputes();
+      refreshReviews();
+      refreshVerification();
+    }
+  }, [
+    user, books.length, refreshOrders, refreshWishlist, refreshNotifications,
+    refreshDisputes, refreshReviews, refreshVerification,
+  ]);
+
+  // ─ Realtime sync (live listings, orders & notifications) ────────────────
+  // Keeps the latest refresh callbacks in a ref so the websocket channels are
+  // created once (per user) instead of being torn down on every state change.
+  const refreshFnsRef = useRef({
+    refreshBooks,
+    refreshOrders,
+    refreshNotifications,
+    refreshReviews,
+    refreshVerification,
+    refreshProfile,
+  });
+
+  useEffect(() => {
+    refreshFnsRef.current = {
+      refreshBooks,
+      refreshOrders,
+      refreshNotifications,
+      refreshReviews,
+      refreshVerification,
+      refreshProfile,
+    };
+  }, [
+    refreshBooks, refreshOrders, refreshNotifications,
+    refreshReviews, refreshVerification, refreshProfile,
+  ]);
+
+  // Coalesces bursts of change events into a single refetch
+  const realtimeTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const scheduleRealtimeRefresh = useCallback((key: string, run: () => void) => {
+    const pending = realtimeTimersRef.current[key];
+    if (pending) clearTimeout(pending);
+    realtimeTimersRef.current[key] = setTimeout(run, 350);
+  }, []);
+
+  // Public marketplace listings: every student sees new/updated books instantly
+  useEffect(() => {
+    const channel = supabase
+      .channel('illdoor-books-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'books' }, () => {
+        scheduleRealtimeRefresh('books', () => { void refreshFnsRef.current.refreshBooks(); });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'book_images' }, () => {
+        scheduleRealtimeRefresh('books', () => { void refreshFnsRef.current.refreshBooks(); });
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [scheduleRealtimeRefresh]);
+
+  // Private streams: this user's orders and notifications (RLS keeps payloads scoped)
+  const realtimeUserId = user?.id ?? null;
+
+  useEffect(() => {
+    if (!realtimeUserId) return;
+
+    const channel = supabase
+      .channel(`illdoor-user-${realtimeUserId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders', filter: `buyer_id=eq.${realtimeUserId}` },
+        () => { scheduleRealtimeRefresh('orders', () => { void refreshFnsRef.current.refreshOrders(); }); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders', filter: `seller_id=eq.${realtimeUserId}` },
+        () => { scheduleRealtimeRefresh('orders', () => { void refreshFnsRef.current.refreshOrders(); }); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${realtimeUserId}` },
+        () => {
+          scheduleRealtimeRefresh('notifications', () => {
+            void refreshFnsRef.current.refreshNotifications();
+            void refreshFnsRef.current.refreshProfile();
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [realtimeUserId, scheduleRealtimeRefresh]);
+
+  // Trust signals: reviews about/from this student, plus their verification status
+  useEffect(() => {
+    if (!realtimeUserId) return;
+
+    const channel = supabase
+      .channel(`illdoor-trust-${realtimeUserId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reviews', filter: `reviewee_id=eq.${realtimeUserId}` },
+        () => {
+          scheduleRealtimeRefresh('reviews', () => {
+            void refreshFnsRef.current.refreshReviews();
+            void refreshFnsRef.current.refreshProfile();
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reviews', filter: `reviewer_id=eq.${realtimeUserId}` },
+        () => { scheduleRealtimeRefresh('reviews', () => { void refreshFnsRef.current.refreshReviews(); }); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'verification_requests', filter: `user_id=eq.${realtimeUserId}` },
+        () => {
+          scheduleRealtimeRefresh('verification', () => {
+            void refreshFnsRef.current.refreshVerification();
+            void refreshFnsRef.current.refreshProfile();
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [realtimeUserId, scheduleRealtimeRefresh]);
+
+  // Campus desk queue: admins follow every verification request
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const channel = supabase
+      .channel('illdoor-admin-verification')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'verification_requests' },
+        () => { scheduleRealtimeRefresh('admin-verification', () => { void refreshFnsRef.current.refreshVerification(); }); }
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [isAdmin, scheduleRealtimeRefresh]);
+
+  // Drop pending timers when the provider unmounts
+  useEffect(() => () => {
+    Object.values(realtimeTimersRef.current).forEach((timer) => clearTimeout(timer));
+    realtimeTimersRef.current = {};
+  }, []);
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  const addNotification = useCallback(async (notif: Omit<NotificationItem, 'id' | 'timestamp' | 'read'>) => {
+    if (!user) return;
+    await supabase.from('notifications').insert({
+      user_id: user.id, title: notif.title, message: notif.message,
+      type: notif.type, link_route: notif.linkRoute ?? null, link_id: notif.linkId ?? null,
+    });
+    await refreshNotifications();
+  }, [user, refreshNotifications]);
+
+  // ── Navigation ───────────────────────────────────────────────────────────
+  const navigateToBook = (bookId: string) => {
+    setSelectedBookId(bookId);
+    setActiveView('book-details');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Increment view count
+    supabase.from('books').update({ views_count: (books.find((b) => b.id === bookId)?.viewsCount ?? 0) + 1 })
+      .eq('id', bookId);
+  };
+
+  const navigateToOrder = (orderId: string) => {
+    setSelectedOrderId(orderId);
+    setActiveView('orders');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ── Wishlist ─────────────────────────────────────────────────────────────
+  const toggleWishlist = async (bookId: string) => {
+    if (!user) {
+      setWishlistIds((prev) => {
+        const next = prev.includes(bookId) ? prev.filter((id) => id !== bookId) : [...prev, bookId];
+        try {
+          localStorage.setItem('local_wishlist', JSON.stringify(next));
+        } catch {
+          // ignore
+        }
+        return next;
+      });
+      return;
+    }
+
+    if (wishlistIds.includes(bookId)) {
+      await supabase.from('wishlist').delete().eq('user_id', user.id).eq('book_id', bookId);
+      setWishlistIds((prev) => prev.filter((id) => id !== bookId));
+    } else {
+      await supabase.from('wishlist').insert({ user_id: user.id, book_id: bookId });
+      setWishlistIds((prev) => [...prev, bookId]);
+    }
+  };
+
+  const isWishlisted = (bookId: string) => wishlistIds.includes(bookId);
+
+  // ── Book actions ─────────────────────────────────────────────────────────
+  const addBookListing = useCallback(async (
+    newBookData: Omit<BookListing, 'id' | 'seller' | 'createdAt' | 'viewsCount' | 'savings'>,
+    imageFiles?: File[]
+  ): Promise<string> => {
+    if (!user) return '';
+
+    const pickup = pickupPoints.find((p) => p.id === newBookData.pickupPointId) ?? pickupPoints[0];
+
+    // 1. Insert book
+    const { data: inserted, error } = await supabase.from('books').insert({
+      seller_id: user.id,
+      title: newBookData.title,
+      author: newBookData.author,
+      edition: newBookData.edition ?? null,
+      subject_code: newBookData.subjectCode,
+      subject_name: newBookData.subjectName,
+      department: newBookData.department,
+      semester: newBookData.semester,
+      condition: newBookData.condition,
+      condition_details: newBookData.conditionDetails,
+      original_price: newBookData.originalPrice,
+      selling_price: newBookData.sellingPrice,
+      availability: 'Available',
+      pickup_point_id: pickup.id,
+      pickup_point_name: pickup.name,
+      isbn: newBookData.isbn ?? null,
+    }).select('id').single();
+
+    if (error || !inserted) {
+      console.error('Book insert error:', error);
+      return '';
+    }
+
+    const newBookId = inserted.id as string;
+
+    // 2. Upload images if provided
+    if (imageFiles && imageFiles.length > 0) {
+      const { uploadBookImages } = await import('../lib/imageUpload');
+      try {
+        const urls = await uploadBookImages(imageFiles, user.id, newBookId);
+        if (urls.length > 0) {
+          await supabase.from('book_images').insert(urls.map((url) => ({ book_id: newBookId, url })));
+        }
+      } catch (imgErr) {
+        console.warn('Image upload failed:', imgErr);
+      }
+    }
+
+    // 3. Notification
+    await addNotification({
+      title: 'Book Listed Successfully!',
+      message: `Your listing "${newBookData.title}" (Code: ${newBookData.subjectCode}) is now live on Illdoor.`,
+      type: 'system',
+      linkRoute: 'browse',
+    });
+
+    // 4. Profile stats (total_sales) are incremented by the `orders_lifecycle`
+    //    DB trigger when an order is completed — the client must not write the
+    //    seller's own counters here (RLS + double counting).
+
+    await refreshBooks();
+    return newBookId;
+  }, [user, pickupPoints, addNotification, refreshBooks]);
+
+  const updateBookStatus = useCallback(async (bookId: string, availability: BookListing['availability']) => {
+    await supabase.from('books').update({ availability }).eq('id', bookId);
+    setBooks((prev) => prev.map((b) => b.id === bookId ? { ...b, availability } : b));
+  }, []);
+
+  const deleteBookListing = useCallback(async (bookId: string) => {
+    await supabase.from('books').delete().eq('id', bookId);
+    setBooks((prev) => prev.filter((b) => b.id !== bookId));
+  }, []);
+
+  // ── Order actions ────────────────────────────────────────────────────────
+  const createOrder = useCallback(async (bookId: string, pickupPointId: string): Promise<string> => {
+    if (!user) return '';
+    const book = books.find((b) => b.id === bookId);
+    if (!book) return '';
+
+    const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+    const orderNum = `PB-${Math.floor(1000 + Math.random() * 9000)}`;
+    const pickup = pickupPoints.find((p) => p.id === pickupPointId) ?? pickupPoints[0];
+
+    const { data: inserted, error } = await supabase.from('orders').insert({
+      order_number: orderNum,
+      book_id: bookId,
+      buyer_id: user.id,
+      seller_id: book.seller.id,
+      price: book.sellingPrice,
+      status: 'placed',
+      pickup_point_id: pickup.id,
+      payment_state: 'Paid (Escrow)',
+      verification_pin: randomPin,
+    }).select('id').single();
+
+    if (error || !inserted) {
+      console.error('Order insert error:', error);
+      return '';
+    }
+
+    await updateBookStatus(bookId, 'Reserved');
+    await addNotification({
+      title: `Order Placed (${orderNum})`,
+      message: `You ordered "${book.title}". PIN: ${randomPin}. Pickup: ${pickup.name}.`,
+      type: 'order',
+      linkRoute: 'orders',
+      linkId: inserted.id as string,
+    });
+    // Note: buyer/seller counters and the "Sold" availability flip are applied
+    // by the `orders_lifecycle` DB trigger once the pickup PIN is verified.
+    await refreshOrders();
+    return inserted.id as string;
+  }, [user, books, pickupPoints, addNotification, updateBookStatus, refreshOrders]);
+
+  const verifyPickupPin = useCallback(async (orderId: string, pin: string): Promise<{ success: boolean; message: string }> => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return { success: false, message: 'Order not found.' };
+    if (order.verificationPin !== pin.trim()) {
+      return { success: false, message: 'Invalid PIN. Please check your order details.' };
+    }
+
+    await supabase.from('orders').update({ status: 'completed', payment_state: 'Released to Seller' }).eq('id', orderId);
+    await updateBookStatus(order.book.id, 'Sold');
+    await addNotification({
+      title: `Pickup Verified — Order #${order.orderNumber}`,
+      message: `Physical handover confirmed! ৳${order.price} released to ${order.seller.name}.`,
+      type: 'pickup',
+      linkRoute: 'orders',
+      linkId: order.id,
+    });
+    await refreshOrders();
+    await refreshProfile();
+    return { success: true, message: `Success! PIN verified. Escrow ৳${order.price} released!` };
+  }, [orders, updateBookStatus, addNotification, refreshOrders, refreshProfile]);
+
+  // ── Notification actions ─────────────────────────────────────────────────
+  const markNotificationAsRead = useCallback(async (id: string) => {
+    await supabase.from('notifications').update({ read: true }).eq('id', id);
+    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+  }, []);
+
+  const markAllNotificationsAsRead = useCallback(async () => {
+    if (!user) return;
+    await supabase.from('notifications').update({ read: true }).eq('user_id', user.id);
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, [user]);
+
+  // ── Dispute actions ──────────────────────────────────────────────────────
+  const fileDispute = useCallback(async (orderNumber: string, bookTitle: string, reason: string, details: string) => {
+    if (!user) return;
+    const order = orders.find((o) => o.orderNumber === orderNumber);
+    await supabase.from('disputes').insert({
+      order_id: order?.id ?? null,
+      order_number: orderNumber, book_title: bookTitle,
+      reported_by: user.id, reason, details,
+    });
+    await addNotification({
+      title: `Dispute Filed — Order #${orderNumber}`,
+      message: `Your report has been received. Escrow payout is paused pending review.`,
+      type: 'dispute',
+      linkRoute: 'orders',
+    });
+    await refreshDisputes();
+  }, [user, orders, addNotification, refreshDisputes]);
+
+  const resolveDispute = useCallback(async (disputeId: string, status: DisputeReport['status']) => {
+    setDisputes((prev) => prev.map((d) => d.id === disputeId ? { ...d, status } : d));
+    // Persisted so the decision survives a refresh (admin-only via RLS)
+    await supabase.from('disputes').update({ status }).eq('id', disputeId);
+  }, []);
+
+  // ── Reviews ──────────────────────────────────────────────────────────────
+  const submitReview = useCallback(async (
+    orderId: string,
+    rating: number,
+    comment: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!user) return { success: false, message: 'Please log in to leave a review.' };
+
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return { success: false, message: 'Order not found.' };
+    if (order.status !== 'completed') {
+      return { success: false, message: 'Reviews unlock once the pickup PIN is verified.' };
+    }
+
+    const counterparty = order.buyer.id === user.id ? order.seller : order.buyer;
+
+    const { error } = await supabase.from('reviews').insert({
+      order_id: orderId,
+      book_id: order.book.id,
+      reviewer_id: user.id,
+      reviewee_id: counterparty.id,
+      rating,
+      comment: comment.trim(),
+    });
+
+    if (error) {
+      console.error('Review insert error:', error);
+      const duplicate = error.code === '23505';
+      return {
+        success: false,
+        message: duplicate ? 'You have already reviewed this transaction.' : error.message,
+      };
+    }
+
+    await addNotification({
+      title: 'Review Published',
+      message: `Thanks! Your ${rating}-star review of ${counterparty.name} is now part of the campus trust score.`,
+      type: 'system',
+      linkRoute: 'profile',
+    });
+
+    await refreshReviews();
+    return { success: true, message: 'Review published. Thank you for keeping Illdoor trusted!' };
+  }, [user, orders, addNotification, refreshReviews]);
+
+  const hasReviewedOrder = useCallback(
+    (orderId: string) => reviewsGiven.some((r) => r.orderId === orderId),
+    [reviewsGiven]
+  );
+
+  // ── Student ID verification ──────────────────────────────────────────────
+  const submitVerificationRequest = useCallback(async (data: {
+    studentRoll: string;
+    studentRegNo: string;
+    idCardFile: File | null;
+  }): Promise<{ success: boolean; message: string }> => {
+    if (!user) return { success: false, message: 'Please log in first.' };
+
+    let idCardPath: string | null = null;
+    if (data.idCardFile) {
+      try {
+        const { uploadStudentIdCard } = await import('../lib/imageUpload');
+        idCardPath = await uploadStudentIdCard(data.idCardFile, user.id);
+      } catch (err) {
+        console.error('ID card upload failed:', err);
+        return { success: false, message: 'ID card upload failed. Please try a smaller photo.' };
+      }
+    }
+
+    const payload = {
+      student_roll: data.studentRoll.trim(),
+      student_reg_no: data.studentRegNo.trim(),
+      status: 'pending' as const,
+      admin_note: '',
+      reviewed_by: null,
+      reviewed_at: null,
+    };
+
+    const { error } = verificationRequest
+      ? await supabase
+          .from('verification_requests')
+          .update({ ...payload, ...(idCardPath ? { id_card_path: idCardPath } : {}) })
+          .eq('id', verificationRequest.id)
+      : await supabase.from('verification_requests').insert({
+          user_id: user.id,
+          ...payload,
+          id_card_path: idCardPath,
+        });
+
+    if (error) {
+      console.error('Verification submit error:', error);
+      return { success: false, message: error.message };
+    }
+
+    await addNotification({
+      title: 'Student ID Submitted',
+      message: 'Your BTEB roll, registration number and ID card are queued for campus desk review.',
+      type: 'verification',
+      linkRoute: 'profile',
+    });
+
+    await refreshVerification();
+    return { success: true, message: 'Submitted! The campus desk will verify your student ID shortly.' };
+  }, [user, verificationRequest, addNotification, refreshVerification]);
+
+  const decideVerification = useCallback(async (
+    requestId: string,
+    decision: 'approved' | 'rejected',
+    note?: string
+  ) => {
+    if (!isAdmin) return;
+    await supabase
+      .from('verification_requests')
+      .update({
+        status: decision,
+        admin_note: note?.trim() || '',
+        reviewed_by: user?.id ?? null,
+      })
+      .eq('id', requestId);
+
+    await refreshVerification();
+  }, [isAdmin, user, refreshVerification]);
+
+  // ── Order cancellation ───────────────────────────────────────────────────
+  const cancelOrder = useCallback(async (
+    orderId: string,
+    reason: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!user) return { success: false, message: 'Please log in first.' };
+
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return { success: false, message: 'Order not found.' };
+
+    if (order.buyer.id !== user.id && order.seller.id !== user.id) {
+      return { success: false, message: 'You can only cancel your own orders.' };
+    }
+    if (order.status !== 'placed' && order.status !== 'confirmed') {
+      return {
+        success: false,
+        message: 'This order can no longer be cancelled — the book is already in the pickup flow.',
+      };
+    }
+
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'cancelled', cancel_reason: reason.trim() || 'Cancelled by student' })
+      .eq('id', orderId);
+
+    if (error) {
+      console.error('Order cancel error:', error);
+      return { success: false, message: error.message };
+    }
+
+    // The DB trigger refunds escrow, frees the listing and notifies both sides
+    await refreshOrders();
+    await refreshBooks();
+    return { success: true, message: 'Order cancelled and the escrow amount refunded.' };
+  }, [user, orders, refreshOrders, refreshBooks]);
+
+  // ── Filters ─────────────────────────────────────────────────────────────
+  const resetFilters = () => { setFilters(defaultFilters); setSearchQuery(''); };
+
+  const applyQuickSubjectSearch = (codeOrName: string) => {
+    setSearchQuery(codeOrName);
+    setFilters((prev) => ({ ...prev, search: codeOrName }));
+    setActiveView('browse');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ── Computed: filtered books ─────────────────────────────────────────────
+  const filteredBooks = books.filter((book) => {
+    const query = (filters.search || searchQuery).trim().toLowerCase();
+    if (query) {
+      const matches = [book.title, book.author, book.subjectName, book.subjectCode, book.department]
+        .some((f) => f.toLowerCase().includes(query));
+      if (!matches) return false;
+    }
+    if (filters.department !== 'All Departments' && book.department !== filters.department) return false;
+    if (filters.semester !== 'All Semesters' && book.semester !== filters.semester) return false;
+    if (filters.condition !== 'All Conditions' && book.condition !== filters.condition) return false;
+    if (filters.availability !== 'All' && book.availability !== filters.availability) return false;
+    if (book.sellingPrice < filters.minPrice || book.sellingPrice > filters.maxPrice) return false;
+    return true;
+  }).sort((a, b) => {
+    if (filters.sortBy === 'newest') return b.createdAt.localeCompare(a.createdAt);
+    if (filters.sortBy === 'price_low') return a.sellingPrice - b.sellingPrice;
+    if (filters.sortBy === 'price_high') return b.sellingPrice - a.sellingPrice;
+    if (a.availability === 'Available' && b.availability !== 'Available') return -1;
+    if (b.availability === 'Available' && a.availability !== 'Available') return 1;
+    return b.savings - a.savings;
+  });
+
+  const unreadNotificationCount = notifications.filter((n) => !n.read).length;
+
+  return (
+    <MarketplaceContext.Provider value={{
+      activeView, setActiveView,
+      selectedBookId, setSelectedBookId,
+      selectedOrderId, setSelectedOrderId,
+      navigateToBook, navigateToOrder,
+      currentUser, setCurrentUser,
+      books, pickupPoints, wishlistIds, orders, notifications, disputes,
+      reviews, reviewsGiven, verificationRequest, verificationQueue,
+      dataLoading,
+      refreshBooks, refreshOrders, refreshNotifications, refreshReviews, refreshVerification,
+      toggleWishlist, isWishlisted,
+      addBookListing, updateBookStatus, deleteBookListing,
+      createOrder, verifyPickupPin, cancelOrder,
+      submitReview, hasReviewedOrder,
+      submitVerificationRequest, decideVerification,
+      markNotificationAsRead, markAllNotificationsAsRead,
+      fileDispute, resolveDispute,
+      filters, setFilters, resetFilters,
+      searchQuery, setSearchQuery,
+      applyQuickSubjectSearch,
+      filteredBooks, unreadNotificationCount,
+      user, isAuthenticated, isAdmin,
+      isAuthModalOpen, authModalTab, authModalMessage,
+      openAuthModal, closeAuthModal,
+      signOut,
+    }}>
+      {children}
+    </MarketplaceContext.Provider>
+  );
+};
+
+export const useMarketplace = (): MarketplaceContextType => {
+  const context = useContext(MarketplaceContext);
+  if (!context) throw new Error('useMarketplace must be used within a MarketplaceProvider');
+  return context;
+};
