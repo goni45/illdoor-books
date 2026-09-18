@@ -8,6 +8,8 @@ import {
   Sparkles,
   ArrowRight,
   Building2,
+  Tag,
+  FileQuestion,
 } from 'lucide-react';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { Navbar } from '../components/Navbar';
@@ -72,7 +74,7 @@ const GaugeSvg: React.FC<{
 };
 
 export const HomePage: React.FC = () => {
-  const { books, setActiveView, applyQuickSubjectSearch } = useMarketplace();
+  const { books, setActiveView, applyQuickSubjectSearch, bookRequests, startSellForRequest } = useMarketplace();
 
   // Card 1 interactive state: Student savings / book trades
   const [savingsToggle, setSavingsToggle] = useState<'savings' | 'books'>('savings');
@@ -613,6 +615,98 @@ export const HomePage: React.FC = () => {
               <BookCard key={book.id} book={book} />
             ))}
           </div>
+        </section>
+
+        {/* Book Requests & Campus Demand (PRD §15) */}
+        <section className="bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 rounded-3xl p-6 sm:p-8 text-white border border-neutral-800 shadow-lg relative overflow-hidden">
+          <div className="absolute right-0 top-0 w-80 h-80 bg-[#ef4d23]/15 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[#ef4d23] text-xs font-semibold uppercase tracking-wider mb-2">
+                <Tag className="w-3 h-3" />
+                <span>Student Demand Board</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                Students Are Looking For These Books
+              </h2>
+              <p className="text-xs sm:text-sm text-neutral-400 mt-1 max-w-xl">
+                Have these textbooks at home? Earn instant cash by listing them, or post your own book request if you can't find what you need.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => {
+                  setActiveView('requests');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+              >
+                <span>View All Requests</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {bookRequests.filter((r) => r.status === 'open').length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+              {bookRequests
+                .filter((r) => r.status === 'open')
+                .slice(0, 3)
+                .map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-neutral-800/80 backdrop-blur-md rounded-2xl border border-neutral-700/80 p-4.5 flex flex-col justify-between hover:border-neutral-600 transition-colors"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                        <span className="font-mono text-xs font-bold text-[#ef4d23] bg-[#ef4d23]/10 border border-[#ef4d23]/25 px-2 py-0.5 rounded-md">
+                          {req.subjectCode}
+                        </span>
+                        {req.maxBudget != null && (
+                          <span className="text-xs font-bold text-neutral-200">
+                            Budget: ৳{req.maxBudget}
+                          </span>
+                        )}
+                      </div>
+
+                      <h4 className="font-bold text-sm text-white line-clamp-2 mb-1.5">
+                        {req.title}
+                      </h4>
+
+                      <p className="text-[11px] text-neutral-400 mb-3">
+                        {req.department} • {req.semester}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => startSellForRequest(req)}
+                      className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#ef4d23] hover:bg-[#d93f17] text-white text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <span>I Have This Book (Sell)</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <div className="bg-neutral-800/60 rounded-2xl border border-neutral-700/60 p-6 text-center relative z-10">
+              <p className="text-xs sm:text-sm text-neutral-300 mb-3">
+                No textbook requests currently waiting. Need a specific semester book?
+              </p>
+              <button
+                onClick={() => {
+                  setActiveView('requests');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#ef4d23] text-white text-xs font-semibold hover:bg-[#d93f17] transition-colors cursor-pointer"
+              >
+                <FileQuestion className="w-3.5 h-3.5" />
+                <span>Post a Book Request</span>
+              </button>
+            </div>
+          )}
         </section>
 
         {/* Campus Pickup Points Information Card */}

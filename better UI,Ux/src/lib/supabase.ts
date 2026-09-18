@@ -178,6 +178,25 @@ export type Database = {
           Partial<Pick<Database['public']['Tables']['verification_requests']['Row'], 'status' | 'admin_note' | 'reviewed_by'>>;
         Update: Partial<Database['public']['Tables']['verification_requests']['Row']>;
       };
+      book_requests: {
+        Row: {
+          id: string;
+          requester_id: string;
+          title: string;
+          subject_code: string;
+          department: string;
+          semester: string;
+          max_budget: number | null;
+          description: string | null;
+          status: 'open' | 'fulfilled' | 'cancelled';
+          fulfilled_by_book_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['book_requests']['Row'], 'id' | 'created_at' | 'updated_at' | 'status' | 'fulfilled_by_book_id'> &
+          Partial<Pick<Database['public']['Tables']['book_requests']['Row'], 'status' | 'fulfilled_by_book_id'>>;
+        Update: Partial<Database['public']['Tables']['book_requests']['Row']>;
+      };
     };
   };
 };

@@ -155,6 +155,24 @@ export interface DisputeReport {
   priority: 'Low' | 'Medium' | 'High';
 }
 
+export interface BookRequest {
+  id: string;
+  requesterId: string;
+  requesterName: string;
+  requesterAvatar?: string;
+  requesterDepartment?: string;
+  title: string;
+  subjectCode: string;
+  department: string;
+  semester: string;
+  maxBudget?: number;
+  description?: string;
+  status: 'open' | 'fulfilled' | 'cancelled';
+  fulfilledByBookId?: string;
+  createdAt: string;
+  createdAtRaw: number;
+}
+
 export interface FilterState {
   search: string;
   department: string;
@@ -174,6 +192,8 @@ export type ActiveView =
   | 'sell'
   | 'orders'
   | 'wishlist'
+  | 'requests'
   | 'notifications'
   | 'profile'
   | 'admin';
+

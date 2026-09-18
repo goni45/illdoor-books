@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import {
   ActiveView,
   BookListing,
+  BookRequest,
   DisputeReport,
   FilterState,
   NotificationItem,
@@ -12,7 +13,7 @@ import {
   StudentUser,
   VerificationRequest,
 } from '../types';
-import { DEPARTMENTS, SEMESTERS, CONDITIONS, PICKUP_POINTS as FALLBACK_PICKUP_POINTS, INITIAL_BOOKS } from '../data/mockData';
+import { DEPARTMENTS, SEMESTERS, CONDITIONS, PICKUP_POINTS as FALLBACK_PICKUP_POINTS, INITIAL_BOOKS, INITIAL_BOOK_REQUESTS } from '../data/mockData';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { User } from '@supabase/supabase-js';
@@ -123,6 +124,29 @@ function mapDbOrderToOrder(row: Record<string, unknown>, book: BookListing, buye
   };
 }
 
+function mapDbBookRequest(row: Record<string, unknown>): BookRequest {
+  const prof = (row.profile ?? {}) as Record<string, unknown>;
+  const createdAt = row.created_at as string;
+  return {
+    id: row.id as string,
+    requesterId: row.requester_id as string,
+    requesterName: (prof.full_name as string) || 'Student',
+    requesterAvatar: (prof.avatar_url as string) ||
+      `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent((prof.full_name as string) || 'Student')}&backgroundColor=ef4d23`,
+    requesterDepartment: (prof.department as string) || '',
+    title: row.title as string,
+    subjectCode: row.subject_code as string,
+    department: row.department as string,
+    semester: row.semester as string,
+    maxBudget: row.max_budget != null ? Number(row.max_budget) : undefined,
+    description: (row.description as string) || '',
+    status: (row.status as 'open' | 'fulfilled' | 'cancelled') || 'open',
+    fulfilledByBookId: (row.fulfilled_by_book_id as string) || undefined,
+    createdAt: createdAt ? new Date(createdAt).toLocaleDateString('en-BD', { month: 'short', day: 'numeric' }) : '',
+    createdAtRaw: createdAt ? new Date(createdAt).getTime() : 0,
+  };
+}
+
 // ─── Context types ───────────────────────────────────────────────────────────
 
 interface MarketplaceContextType {
@@ -183,6 +207,24 @@ interface MarketplaceContextType {
 
   // ── Order cancellation ────────────────────────────────────────────────
   cancelOrder: (orderId: string, reason: string) => Promise<{ success: boolean; message: string }>;
+
+  // ── Book requests ────────────────────────────────────────────────────────
+  bookRequests: BookRequest[];
+  loadingRequests: boolean;
+  prefillSellData: Partial<BookListing> | null;
+  setPrefillSellData: (data: Partial<BookListing> | null) => void;
+  refreshBookRequests: () => Promise<void>;
+  createBookRequest: (data: {
+    title: string;
+    subjectCode: string;
+    department: string;
+    semester: string;
+    maxBudget?: number;
+    description?: string;
+  }) => Promise<{ success: boolean; message: string; id?: string }>;
+  cancelBookRequest: (requestId: string) => Promise<{ success: boolean; message: string }>;
+  fulfillBookRequest: (requestId: string, bookId?: string) => Promise<{ success: boolean; message: string }>;
+  startSellForRequest: (request: BookRequest) => void;
 
   /** True when the signed-in profile has the is_admin flag */
   isAdmin: boolean;
@@ -319,6 +361,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [reviewsGiven, setReviewsGiven] = useState<Review[]>([]);
   const [verificationRequest, setVerificationRequest] = useState<VerificationRequest | null>(null);
   const [verificationQueue, setVerificationQueue] = useState<VerificationRequest[]>([]);
+  const [bookRequests, setBookRequests] = useState<BookRequest[]>(INITIAL_BOOK_REQUESTS);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [prefillSellData, setPrefillSellData] = useState<Partial<BookListing> | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
 
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
@@ -567,15 +612,41 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }));
   }, [user, isAdmin]);
 
+  // ── Fetch book requests ──────────────────────────────────────────────────
+  const refreshBookRequests = useCallback(async () => {
+    setLoadingRequests(true);
+    try {
+      const { data, error } = await supabase
+        .from('book_requests')
+        .select('*, profile:profiles!book_requests_requester_id_fkey(full_name, avatar_url, department)')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('Failed to fetch book requests:', error.message);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setBookRequests(data.map((row) => mapDbBookRequest(row as unknown as Record<string, unknown>)));
+      } else {
+        setBookRequests((prev) => (prev.length > 0 ? prev : INITIAL_BOOK_REQUESTS));
+      }
+    } catch (err) {
+      console.warn('Error fetching book requests:', err);
+    } finally {
+      setLoadingRequests(false);
+    }
+  }, []);
+
   // ── Initial load ─────────────────────────────────────────────────────────
   useEffect(() => {
     const loadAll = async () => {
       setDataLoading(true);
-      await refreshBooks();
+      await Promise.all([refreshBooks(), refreshBookRequests()]);
       setDataLoading(false);
     };
     loadAll();
-  }, [refreshBooks]);
+  }, [refreshBooks, refreshBookRequests]);
 
   useEffect(() => {
     if (user && books.length >= 0) {
@@ -601,6 +672,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     refreshReviews,
     refreshVerification,
     refreshProfile,
+    refreshBookRequests,
   });
 
   useEffect(() => {
@@ -611,10 +683,12 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       refreshReviews,
       refreshVerification,
       refreshProfile,
+      refreshBookRequests,
     };
   }, [
     refreshBooks, refreshOrders, refreshNotifications,
     refreshReviews, refreshVerification, refreshProfile,
+    refreshBookRequests,
   ]);
 
   // Coalesces bursts of change events into a single refetch
@@ -634,6 +708,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'book_images' }, () => {
         scheduleRealtimeRefresh('books', () => { void refreshFnsRef.current.refreshBooks(); });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'book_requests' }, () => {
+        scheduleRealtimeRefresh('requests', () => { void refreshFnsRef.current.refreshBookRequests(); });
       })
       .subscribe();
 
@@ -1082,6 +1159,89 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return { success: true, message: 'Order cancelled and the escrow amount refunded.' };
   }, [user, orders, refreshOrders, refreshBooks]);
 
+  // ── Book requests handlers ───────────────────────────────────────────────
+  const createBookRequest = useCallback(async (data: {
+    title: string;
+    subjectCode: string;
+    department: string;
+    semester: string;
+    maxBudget?: number;
+    description?: string;
+  }) => {
+    if (!user) {
+      openAuthModal('login', 'বইয়ের অনুরোধ করতে দয়া করে লগইন করুন (Please log in to request books)');
+      return { success: false, message: 'Not authenticated' };
+    }
+
+    const { data: inserted, error } = await supabase
+      .from('book_requests')
+      .insert({
+        requester_id: user.id,
+        title: data.title.trim(),
+        subject_code: data.subjectCode.trim(),
+        department: data.department,
+        semester: data.semester,
+        max_budget: data.maxBudget || null,
+        description: data.description?.trim() || null,
+        status: 'open',
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    await refreshBookRequests();
+    return {
+      success: true,
+      message: 'Book request posted successfully! You will be notified when someone lists this book.',
+      id: inserted?.id,
+    };
+  }, [user, openAuthModal, refreshBookRequests]);
+
+  const cancelBookRequest = useCallback(async (requestId: string) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+
+    const { error } = await supabase
+      .from('book_requests')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', requestId);
+
+    if (error) return { success: false, message: error.message };
+    await refreshBookRequests();
+    return { success: true, message: 'Request cancelled successfully.' };
+  }, [user, refreshBookRequests]);
+
+  const fulfillBookRequest = useCallback(async (requestId: string, bookId?: string) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+
+    const { error } = await supabase
+      .from('book_requests')
+      .update({
+        status: 'fulfilled',
+        fulfilled_by_book_id: bookId || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', requestId);
+
+    if (error) return { success: false, message: error.message };
+    await refreshBookRequests();
+    return { success: true, message: 'Request marked as fulfilled!' };
+  }, [user, refreshBookRequests]);
+
+  const startSellForRequest = useCallback((req: BookRequest) => {
+    setPrefillSellData({
+      title: req.title,
+      subjectCode: req.subjectCode,
+      department: req.department,
+      semester: req.semester,
+      sellingPrice: req.maxBudget || undefined,
+    });
+    setActiveView('sell');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [setActiveView]);
+
   // ── Filters ─────────────────────────────────────────────────────────────
   const resetFilters = () => { setFilters(defaultFilters); setSearchQuery(''); };
 
@@ -1141,6 +1301,8 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     filters, setFilters, resetFilters,
     searchQuery, setSearchQuery,
     applyQuickSubjectSearch,
+    bookRequests, loadingRequests, prefillSellData, setPrefillSellData,
+    refreshBookRequests, createBookRequest, cancelBookRequest, fulfillBookRequest, startSellForRequest,
     filteredBooks, unreadNotificationCount,
     user, isAuthenticated, isAdmin,
     isAuthModalOpen, authModalTab, authModalMessage,
@@ -1155,6 +1317,8 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     createOrder, verifyPickupPin, cancelOrder, submitReview, hasReviewedOrder,
     submitVerificationRequest, decideVerification, markNotificationAsRead, markAllNotificationsAsRead,
     fileDispute, resolveDispute, filters, searchQuery, applyQuickSubjectSearch,
+    bookRequests, loadingRequests, prefillSellData,
+    refreshBookRequests, createBookRequest, cancelBookRequest, fulfillBookRequest, startSellForRequest,
     filteredBooks, unreadNotificationCount, user, isAuthenticated, isAdmin,
     isAuthModalOpen, authModalTab, authModalMessage, openAuthModal, closeAuthModal, signOut
   ]);

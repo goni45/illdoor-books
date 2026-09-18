@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   UploadCloud,
   CheckCircle2,
@@ -20,7 +20,16 @@ import {
 import { Button } from '../components/common/Button';
 
 export const SellBookPage: React.FC = () => {
-  const { addBookListing, navigateToBook, user, openAuthModal, setActiveView, pickupPoints } = useMarketplace();
+  const {
+    addBookListing,
+    navigateToBook,
+    user,
+    openAuthModal,
+    setActiveView,
+    pickupPoints,
+    prefillSellData,
+    setPrefillSellData,
+  } = useMarketplace();
 
   if (!user) {
     return (
@@ -66,6 +75,23 @@ export const SellBookPage: React.FC = () => {
   );
   const [customImageUrl, setCustomImageUrl] = useState('');
   const [submittedId, setSubmittedId] = useState<string | null>(null);
+
+  // Pre-fill form if redirected from Book Requests ("I Have This Book")
+  useEffect(() => {
+    if (prefillSellData) {
+      if (prefillSellData.title) setTitle(prefillSellData.title);
+      if (prefillSellData.subjectCode) setSubjectCode(prefillSellData.subjectCode);
+      if (prefillSellData.subjectName) {
+        setSubjectName(prefillSellData.subjectName);
+      } else if (prefillSellData.title) {
+        setSubjectName(prefillSellData.title);
+      }
+      if (prefillSellData.department) setDepartment(prefillSellData.department);
+      if (prefillSellData.semester) setSemester(prefillSellData.semester);
+      if (prefillSellData.sellingPrice) setSellingPrice(prefillSellData.sellingPrice);
+      setPrefillSellData(null);
+    }
+  }, [prefillSellData, setPrefillSellData]);
 
   // Preset covers students can choose easily
   const coverPresets = [

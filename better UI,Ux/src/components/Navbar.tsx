@@ -14,6 +14,7 @@ import {
   PlusCircle,
   LogIn,
   LogOut,
+  FileQuestion,
 } from 'lucide-react';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { ActiveView } from '../types';
@@ -109,6 +110,17 @@ export const Navbar: React.FC = () => {
         </button>
 
         <button
+          onClick={() => handleNavClick('requests')}
+          className={`transition-colors cursor-pointer whitespace-nowrap ${
+            activeView === 'requests'
+              ? 'text-neutral-900 font-semibold'
+              : 'text-neutral-700 hover:text-[#ef4d23]'
+          }`}
+        >
+          Requests
+        </button>
+
+        <button
           onClick={() => handleNavClick('orders')}
           className={`transition-colors cursor-pointer whitespace-nowrap ${
             activeView === 'orders'
@@ -145,6 +157,16 @@ export const Navbar: React.FC = () => {
                     {wishlistIds.length}
                   </span>
                 )}
+              </button>
+
+              <button
+                onClick={() => handleNavClick('requests')}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-neutral-800 hover:bg-neutral-50 text-xs font-medium cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <FileQuestion className="w-3.5 h-3.5 text-neutral-500" />
+                  <span>Book Requests</span>
+                </div>
               </button>
 
               <button
@@ -329,6 +351,14 @@ export const Navbar: React.FC = () => {
           >
             <Compass className="w-4 h-4 text-neutral-500" />
             <span>Browse Books</span>
+          </button>
+
+          <button
+            onClick={() => handleNavClick('requests')}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
+          >
+            <FileQuestion className="w-4 h-4 text-neutral-500" />
+            <span>Book Requests</span>
           </button>
 
           <button

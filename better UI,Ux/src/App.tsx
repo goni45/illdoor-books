@@ -17,6 +17,7 @@ const WishlistPage = lazy(() => import('./pages/WishlistPage').then((m) => ({ de
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then((m) => ({ default: m.AdminDashboard })));
+const RequestsPage = lazy(() => import('./pages/RequestsPage').then((m) => ({ default: m.RequestsPage })));
 
 // ─── Loading screen while auth initializes ───────────────────────────────────
 const LoadingScreen: React.FC = () => (
@@ -109,6 +110,7 @@ const MarketplaceContent: React.FC = () => {
           {activeView === 'sell' && <SellBookPage />}
           {activeView === 'orders' && <OrdersPage />}
           {activeView === 'wishlist' && <WishlistPage />}
+          {activeView === 'requests' && <RequestsPage />}
           {activeView === 'notifications' && <NotificationsPage />}
           {activeView === 'profile' && <ProfilePage />}
           {activeView === 'admin' && (isAdmin ? <AdminDashboard /> : <AdminAccessDenied />)}
