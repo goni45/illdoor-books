@@ -11,7 +11,7 @@ import {
   Tag,
   FileQuestion,
 } from 'lucide-react';
-import { useMarketplace } from '../context/MarketplaceContext';
+import { useMarketplace, getBookListingRank } from '../context/MarketplaceContext';
 import { Navbar } from '../components/Navbar';
 import { BookCard } from '../components/BookCard';
 import { PICKUP_POINTS } from '../data/mockData';
@@ -92,8 +92,10 @@ export const HomePage: React.FC = () => {
   // Card 3 interactive state: Campus handover & escrow
   const [handoverToggle, setHandoverToggle] = useState<'booths' | 'library'>('booths');
 
-  // Top featured & high savings books
-  const featuredBooks = books.slice(0, 4);
+  // Top featured & high savings books (ranked with VIP Admin first)
+  const featuredBooks = React.useMemo(() => {
+    return [...books].sort((a, b) => getBookListingRank(a) - getBookListingRank(b)).slice(0, 4);
+  }, [books]);
   const highSavingsBooks = [...books]
     .sort((a, b) => b.savings - a.savings)
     .slice(0, 4);

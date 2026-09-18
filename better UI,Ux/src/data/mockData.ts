@@ -162,7 +162,53 @@ export const OTHER_STUDENTS: StudentUser[] = [
   },
 ];
 
+export const ADMIN_USER: StudentUser = {
+  id: 'usr-admin-ops',
+  name: 'Central Campus Admin Store',
+  email: 'admin@illdoor.edu.bd',
+  studentId: 'ADMIN-VIP-001',
+  institute: 'Dhaka Polytechnic Institute',
+  department: 'Central Academic Affairs',
+  semester: 'Official Campus Desk',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+  isVerified: true,
+  isAdmin: true,
+  joinedDate: 'Jan 2022',
+  rating: 5.0,
+  totalSales: 154,
+  totalPurchases: 0,
+  phone: '+880 1700-112233',
+};
+
 export const INITIAL_BOOKS: BookListing[] = [
+  {
+    id: 'book-vip-1',
+    title: 'Microprocessor and Interfacing (BTEB Probidhan 2022 Standard)',
+    author: 'Sunil Mathur & Engr. M. A. Jabbar',
+    edition: '5th Revised Edition (2022)',
+    subjectCode: '66661',
+    subjectName: 'Microprocessor and Interfacing',
+    department: 'Computer Technology',
+    semester: '6th Semester',
+    condition: 'Like New',
+    conditionDetails: 'Official campus store certified copy. Complete syllabus coverage, pristine condition, guaranteed all diagrams intact.',
+    originalPrice: 750,
+    sellingPrice: 420,
+    savings: 330,
+    images: [
+      'https://images.unsplash.com/photo-1532012164546-f432f2e37b73?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80',
+    ],
+    availability: 'Available',
+    seller: ADMIN_USER,
+    isAdminListing: true,
+    pickupPointId: 'pk-1',
+    pickupPointName: 'Central Library Verification Desk',
+    createdAt: 'Just now',
+    createdAtRaw: new Date().toISOString(),
+    viewsCount: 382,
+    isbn: '978-984-33-8910-1',
+  },
   {
     id: 'book-1',
     title: 'Microprocessor and Interfacing (BTEB Probidhan)',
@@ -287,7 +333,7 @@ export const INITIAL_BOOKS: BookListing[] = [
       'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&auto=format&fit=crop&q=80',
     ],
     availability: 'Available',
-    seller: OTHER_STUDENTS[2], // Farhan Kabir
+    seller: OTHER_STUDENTS[3], // Sadia Sultana (Non-verified student seller)
     pickupPointId: 'pk-4',
     pickupPointName: 'Campus Cafeteria Locker Station',
     createdAt: '5 days ago',

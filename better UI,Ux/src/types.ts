@@ -46,6 +46,7 @@ export interface BookListing {
   createdAtRaw?: string;
   viewsCount?: number;
   isbn?: string;
+  isAdminListing?: boolean;
 }
 
 export interface PickupPoint {

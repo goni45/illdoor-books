@@ -78,7 +78,20 @@ function mapDbBookToListing(row: Record<string, unknown>, sellerProfile: Record<
     createdAtRaw: row.created_at as string,
     viewsCount: (row.views_count as number) || 0,
     isbn: row.isbn as string | undefined,
+    isAdminListing: Boolean(row.is_admin_listing || seller.isAdmin),
   };
+}
+
+/**
+ * Calculates marketplace hierarchy rank:
+ * - Rank 0: Admin VIP Verified listing (Top priority, luxury styling)
+ * - Rank 1: Verified Student Seller (Emerald badges)
+ * - Rank 2: Non-verified Student listing (Neutral styling)
+ */
+export function getBookListingRank(book: BookListing): number {
+  if (book.isAdminListing || book.seller?.isAdmin) return 0;
+  if (book.seller?.isVerified || book.seller?.verificationStatus === 'approved') return 1;
+  return 2;
 }
 
 function mapDbOrderToOrder(row: Record<string, unknown>, book: BookListing, buyer: StudentUser, seller: StudentUser, pickup: PickupPoint): Order {
@@ -391,7 +404,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const refreshBooks = useCallback(async () => {
     const { data: booksData, error } = await supabase
       .from('books')
-      .select('*, profiles(id, full_name, avatar_url, is_verified, rating, student_roll, institute, department, semester), book_images(url)')
+      .select('*, profiles(id, full_name, avatar_url, is_verified, is_admin, rating, student_roll, institute, department, semester), book_images(url)')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -1268,6 +1281,15 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (book.sellingPrice < filters.minPrice || book.sellingPrice > filters.maxPrice) return false;
       return true;
     }).sort((a, b) => {
+      // 1. Strict Tier Hierarchy Sorting:
+      // Rank 0 (Admin VIP) -> Rank 1 (Verified Student) -> Rank 2 (Non-verified)
+      const rankA = getBookListingRank(a);
+      const rankB = getBookListingRank(b);
+      if (rankA !== rankB) {
+        return rankA - rankB;
+      }
+
+      // 2. Secondary sorting within the same rank tier
       if (filters.sortBy === 'newest') {
         return Date.parse(b.createdAtRaw || '0') - Date.parse(a.createdAtRaw || '0');
       }
