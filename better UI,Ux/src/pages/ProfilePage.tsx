@@ -39,6 +39,7 @@ export const ProfilePage: React.FC = () => {
     reviews,
     verificationRequest,
     submitVerificationRequest,
+    isAdmin,
   } = useMarketplace();
 
   if (!user) {
@@ -166,7 +167,18 @@ export const ProfilePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+            {(isAdmin || currentUser.isAdmin) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveView('admin')}
+                icon={<ShieldCheck className="w-4 h-4 text-[#ef4d23]" />}
+                className="bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100 font-semibold"
+              >
+                Ops Console (Admin)
+              </Button>
+            )}
             <Button
               variant="dark"
               size="sm"

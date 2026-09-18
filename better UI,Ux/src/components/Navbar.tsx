@@ -71,7 +71,7 @@ export const Navbar: React.FC = () => {
     <nav
       ref={navRef}
       id="floating-nav-pill"
-      className="bg-white/95 backdrop-blur-md rounded-full shadow-sm border border-neutral-200/90 px-2 sm:px-3 py-1.5 sm:py-2 w-full max-w-[760px] relative flex items-center justify-between select-none"
+      className="bg-white/95 backdrop-blur-md rounded-full shadow-sm border border-neutral-200/90 px-2.5 sm:px-4 py-1.5 sm:py-2 w-full max-w-[880px] relative flex items-center justify-between select-none"
     >
       {/* Logo: EXACTLY ONE ILLDOOR Animated Logo */}
       <button
@@ -83,7 +83,7 @@ export const Navbar: React.FC = () => {
       </button>
 
       {/* Desktop links */}
-      <div className="hidden md:flex items-center gap-4 lg:gap-6 text-[13px] lg:text-[14px] ml-3 lg:ml-5 font-medium text-neutral-800">
+      <div className="hidden md:flex items-center gap-3 lg:gap-5 text-[13px] lg:text-[14px] ml-2 lg:ml-4 font-medium text-neutral-800 shrink-0">
         <button
           onClick={() => handleNavClick('home')}
           className={`flex items-center gap-1.5 transition-colors cursor-pointer ${
@@ -106,7 +106,7 @@ export const Navbar: React.FC = () => {
               : 'text-neutral-700 hover:text-[#ef4d23]'
           }`}
         >
-          Browse Books
+          Browse
         </button>
 
         <button
@@ -128,7 +128,7 @@ export const Navbar: React.FC = () => {
               : 'text-neutral-700 hover:text-[#ef4d23]'
           }`}
         >
-          My Orders
+          Orders
         </button>
 
         {/* Pages Dropdown */}
@@ -190,10 +190,10 @@ export const Navbar: React.FC = () => {
                   className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-neutral-800 hover:bg-neutral-50 text-xs font-medium cursor-pointer border-t border-neutral-100 mt-1 pt-2"
                 >
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-3.5 h-3.5 text-neutral-500" />
-                    <span>Ops Console</span>
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#ef4d23]" />
+                    <span className="font-semibold text-neutral-900">Ops Console</span>
                   </div>
-                  <span className="text-[10px] uppercase font-bold text-neutral-400">Admin</span>
+                  <span className="text-[10px] uppercase font-bold text-white bg-[#ef4d23] px-1.5 py-0.5 rounded-md">Admin</span>
                 </button>
               )}
 
@@ -217,7 +217,7 @@ export const Navbar: React.FC = () => {
       </div>
 
       {/* Right cluster */}
-      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* Wishlist / ShoppingCart icon */}
         <button
           type="button"
@@ -233,18 +233,35 @@ export const Navbar: React.FC = () => {
           )}
         </button>
 
+        {/* Direct Admin Pill for Admin Accounts */}
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => handleNavClick('admin')}
+            title="Open Ops Console (Admin Dashboard)"
+            className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-colors cursor-pointer ${
+              activeView === 'admin'
+                ? 'bg-[#ef4d23] text-white'
+                : 'bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Admin</span>
+          </button>
+        )}
+
         {/* Orange button */}
         <button
           type="button"
           onClick={() => handleNavClick('sell')}
-          className="inline-flex items-center gap-1.5 bg-[#ef4d23] hover:bg-[#de3d13] text-white rounded-full pl-2.5 sm:pl-3.5 pr-1.5 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shadow-xs whitespace-nowrap"
+          className="inline-flex items-center gap-1 sm:gap-1.5 bg-[#ef4d23] hover:bg-[#de3d13] text-white rounded-full pl-2.5 sm:pl-3 pr-1.5 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shadow-xs whitespace-nowrap"
         >
           <span>
-            <span className="hidden sm:inline">Sell a book</span>
+            <span className="hidden sm:inline">Sell Book</span>
             <span className="sm:hidden">Sell</span>
           </span>
-          <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white/20 flex items-center justify-center">
-            <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white" />
+          <span className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-white/20 flex items-center justify-center">
+            <ChevronRight className="w-3 h-3 text-white" />
           </span>
         </button>
 
@@ -253,7 +270,7 @@ export const Navbar: React.FC = () => {
           <button
             onClick={() => handleNavClick('profile')}
             title={`${currentUser.name} (${currentUser.department})`}
-            className="hidden sm:flex items-center cursor-pointer p-0.5 rounded-full border border-neutral-200 hover:border-neutral-300 transition-colors"
+            className="flex items-center cursor-pointer p-0.5 rounded-full border border-neutral-200 hover:border-neutral-300 transition-colors"
           >
             <UserAvatar
               src={currentUser.avatar}
@@ -266,7 +283,7 @@ export const Navbar: React.FC = () => {
           <button
             type="button"
             onClick={() => openAuthModal('login')}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-neutral-800 hover:text-black bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold text-neutral-800 hover:text-black bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer whitespace-nowrap"
           >
             <LogIn className="w-3.5 h-3.5 text-[#ef4d23]" />
             <span>লগইন</span>
@@ -279,7 +296,7 @@ export const Navbar: React.FC = () => {
           type="button"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           aria-label="Toggle menu"
-          className="md:hidden p-1.5 text-neutral-700 hover:text-neutral-900 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer"
+          className="md:hidden p-1.5 text-neutral-700 hover:text-neutral-900 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer ml-0.5"
         >
           {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
