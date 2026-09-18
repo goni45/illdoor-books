@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { IlldoorLogo } from '../components/common/IlldoorLogo';
-import { useAuth, SignUpData } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
+import type { SignUpData } from '../hooks/useAuth';
 import {
   User, Mail, Lock, Phone, BookOpen, GraduationCap,
   Building2, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ArrowRight, X

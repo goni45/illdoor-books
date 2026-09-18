@@ -19,7 +19,6 @@ import { PriceDisplay } from '../components/common/PriceDisplay';
 import { UserAvatar } from '../components/common/UserAvatar';
 import { Button } from '../components/common/Button';
 import { BookCard } from '../components/BookCard';
-import { PICKUP_POINTS } from '../data/mockData';
 
 export const BookDetailsPage: React.FC = () => {
   const {
@@ -34,10 +33,11 @@ export const BookDetailsPage: React.FC = () => {
     fileDispute,
     user,
     openAuthModal,
+    pickupPoints,
   } = useMarketplace();
 
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
-  const [selectedPickupId, setSelectedPickupId] = useState<string>(PICKUP_POINTS[0].id);
+  const [selectedPickupId, setSelectedPickupId] = useState<string>(pickupPoints[0]?.id || 'pk-1');
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState('Incorrect Information');
   const [reportDetails, setReportDetails] = useState('');
@@ -69,15 +69,19 @@ export const BookDetailsPage: React.FC = () => {
       openAuthModal('login', 'বইটি কিনতে প্রথমে লগইন করুন (Please log in to purchase this book)');
       return;
     }
-    setSelectedPickupId(book.pickupPointId || PICKUP_POINTS[0].id);
+    setSelectedPickupId(book.pickupPointId || pickupPoints[0]?.id || 'pk-1');
     setCheckoutModalOpen(true);
   };
 
   const handleConfirmOrder = async () => {
-    const orderId = await createOrder(book.id, selectedPickupId);
+    const res = await createOrder(book.id, selectedPickupId);
     setCheckoutModalOpen(false);
-    if (orderId) {
-      navigateToOrder(orderId);
+    if (res.error) {
+      alert(`Order could not be placed: ${res.error}`);
+      return;
+    }
+    if (res.orderId) {
+      navigateToOrder(res.orderId);
     }
   };
 
@@ -399,7 +403,7 @@ export const BookDetailsPage: React.FC = () => {
               </label>
 
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {PICKUP_POINTS.map((pt) => {
+                {pickupPoints.map((pt) => {
                   const isSelected = selectedPickupId === pt.id;
                   return (
                     <div

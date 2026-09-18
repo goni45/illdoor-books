@@ -287,3 +287,61 @@
   .illdoor-ball { opacity: 0; }
   .illdoor-door-leaf { transform: scaleX(1); opacity: 1; }
 }
+
+/* ============================================================
+   UI Transitions & Animations (P0-9)
+   Provides classes matching animate-in, fade-in, zoom-in-95,
+   slide-in-from-top-2, and slide-in-from-right.
+   ============================================================ */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes zoom-in-95 {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slide-in-from-top-2 {
+  from { opacity: 0; transform: translateY(-0.5rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-from-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.animate-in {
+  animation-duration: 0.2s;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fade-in {
+  animation-name: fade-in;
+}
+
+.zoom-in-95 {
+  animation-name: zoom-in-95;
+}
+
+.slide-in-from-top-2 {
+  animation-name: slide-in-from-top-2;
+}
+
+.slide-in-from-right {
+  animation-name: slide-in-from-right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  .fade-in,
+  .zoom-in-95,
+  .slide-in-from-top-2,
+  .slide-in-from-right {
+    animation: none !important;
+  }
+}
+

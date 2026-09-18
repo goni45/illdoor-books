@@ -43,6 +43,7 @@ export interface BookListing {
   pickupPointId: string;
   pickupPointName: string;
   createdAt: string;
+  createdAtRaw?: string;
   viewsCount?: number;
   isbn?: string;
 }
@@ -89,6 +90,7 @@ export interface Order {
   verificationPin: string;
   cancelReason?: string;
   createdAt: string;
+  createdAtRaw?: string;
   updatedAt: string;
   timeline: OrderTimelineEvent[];
 }

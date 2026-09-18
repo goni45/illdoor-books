@@ -122,6 +122,7 @@ export function useAuth() {
     }
 
     // Profile is auto-created by the DB trigger handle_new_user()
+    setAuthState((prev) => ({ ...prev, loading: false }));
     return { error: null };
   }, []);
 

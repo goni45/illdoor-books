@@ -15,13 +15,12 @@ import { Condition } from '../types';
 import {
   CONDITIONS,
   DEPARTMENTS,
-  PICKUP_POINTS,
   SEMESTERS,
 } from '../data/mockData';
 import { Button } from '../components/common/Button';
 
 export const SellBookPage: React.FC = () => {
-  const { addBookListing, navigateToBook, user, openAuthModal, setActiveView } = useMarketplace();
+  const { addBookListing, navigateToBook, user, openAuthModal, setActiveView, pickupPoints } = useMarketplace();
 
   if (!user) {
     return (
@@ -60,7 +59,8 @@ export const SellBookPage: React.FC = () => {
   const [conditionDetails, setConditionDetails] = useState('');
   const [originalPrice, setOriginalPrice] = useState<number | ''>(650);
   const [sellingPrice, setSellingPrice] = useState<number | ''>(350);
-  const [pickupPointId, setPickupPointId] = useState(PICKUP_POINTS[0].id);
+  const [pickupPointId, setPickupPointId] = useState(pickupPoints[0]?.id || 'pk-1');
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [selectedImage, setSelectedImage] = useState(
     'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80'
   );
@@ -91,6 +91,15 @@ export const SellBookPage: React.FC = () => {
     },
   ];
 
+  // Cleanup object URLs to prevent memory leaks
+  React.useEffect(() => {
+    return () => {
+      if (selectedImage.startsWith('blob:')) {
+        URL.revokeObjectURL(selectedImage);
+      }
+    };
+  }, [selectedImage]);
+
   const calculatedSavings =
     typeof originalPrice === 'number' && typeof sellingPrice === 'number'
       ? Math.max(0, originalPrice - sellingPrice)
@@ -98,16 +107,29 @@ export const SellBookPage: React.FC = () => {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setSelectedImage(url);
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file (PNG, JPG, WEBP).');
+      return;
     }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size exceeds 10MB limit.');
+      return;
+    }
+
+    setSelectedImage((prev) => {
+      if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+    setImageFile(file);
   };
 
   const handleCustomUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (customImageUrl.trim()) {
+      if (selectedImage.startsWith('blob:')) URL.revokeObjectURL(selectedImage);
       setSelectedImage(customImageUrl.trim());
+      setImageFile(null);
     }
   };
 
@@ -128,27 +150,30 @@ export const SellBookPage: React.FC = () => {
     e.preventDefault();
     if (!validateStep1() || !validateStep2()) return;
 
-    const newId = await addBookListing({
-      title: title.trim(),
-      author: author.trim() || 'Academic Faculty',
-      edition: edition.trim() || 'Latest Edition',
-      subjectCode: subjectCode.trim(),
-      subjectName: subjectName.trim() || title.trim(),
-      department,
-      semester,
-      condition,
-      conditionDetails:
-        conditionDetails.trim() ||
-        'Standard condition. All core chapters present and readable.',
-      originalPrice: Number(originalPrice),
-      sellingPrice: Number(sellingPrice),
-      images: [selectedImage],
-      availability: 'Available',
-      pickupPointId,
-      pickupPointName:
-        PICKUP_POINTS.find((p) => p.id === pickupPointId)?.name ||
-        PICKUP_POINTS[0].name,
-    });
+    const chosenPickup = pickupPoints.find((p) => p.id === pickupPointId) ?? pickupPoints[0];
+
+    const newId = await addBookListing(
+      {
+        title: title.trim(),
+        author: author.trim() || 'Academic Faculty',
+        edition: edition.trim() || 'Latest Edition',
+        subjectCode: subjectCode.trim(),
+        subjectName: subjectName.trim() || title.trim(),
+        department,
+        semester,
+        condition,
+        conditionDetails:
+          conditionDetails.trim() ||
+          'Standard condition. All core chapters present and readable.',
+        originalPrice: Number(originalPrice),
+        sellingPrice: Number(sellingPrice),
+        images: [selectedImage],
+        availability: 'Available',
+        pickupPointId: chosenPickup?.id || 'pk-1',
+        pickupPointName: chosenPickup?.name || 'Central Library Verification Desk',
+      },
+      imageFile ? [imageFile] : undefined
+    );
 
     setSubmittedId(newId);
   };
@@ -577,7 +602,7 @@ export const SellBookPage: React.FC = () => {
               </label>
 
               <div className="space-y-2">
-                {PICKUP_POINTS.map((pt) => {
+                {pickupPoints.map((pt) => {
                   const isSelected = pickupPointId === pt.id;
                   return (
                     <div

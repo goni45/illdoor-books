@@ -105,8 +105,8 @@ export const BrowsePage: React.FC = () => {
           {/* Book Cards Grid */}
           {filteredBooks.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-              {filteredBooks.map((book) => (
-                <BookCard key={book.id} book={book} />
+              {filteredBooks.map((book, i) => (
+                <BookCard key={book.id} book={book} priority={i < 4} />
               ))}
             </div>
           ) : (

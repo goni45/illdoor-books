@@ -1,21 +1,22 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { MarketplaceProvider, useMarketplace } from './context/MarketplaceContext';
-import { useAuth } from './hooks/useAuth';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthPage } from './pages/AuthPage';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { BottomGlassNav } from './components/common/BottomGlassNav';
 import { HomePage } from './pages/HomePage';
 import { BrowsePage } from './pages/BrowsePage';
-import { BookDetailsPage } from './pages/BookDetailsPage';
-import { SellBookPage } from './pages/SellBookPage';
-import { OrdersPage } from './pages/OrdersPage';
-import { WishlistPage } from './pages/WishlistPage';
-import { NotificationsPage } from './pages/NotificationsPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { AdminDashboard } from './pages/AdminDashboard';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { Button } from './components/common/Button';
+
+const BookDetailsPage = lazy(() => import('./pages/BookDetailsPage').then((m) => ({ default: m.BookDetailsPage })));
+const SellBookPage = lazy(() => import('./pages/SellBookPage').then((m) => ({ default: m.SellBookPage })));
+const OrdersPage = lazy(() => import('./pages/OrdersPage').then((m) => ({ default: m.OrdersPage })));
+const WishlistPage = lazy(() => import('./pages/WishlistPage').then((m) => ({ default: m.WishlistPage })));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then((m) => ({ default: m.AdminDashboard })));
 
 // ─── Loading screen while auth initializes ───────────────────────────────────
 const LoadingScreen: React.FC = () => (
@@ -71,7 +72,7 @@ const MarketplaceContent: React.FC = () => {
 
   // Scroll to top whenever view changes
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }, [activeView]);
 
   return (
@@ -96,15 +97,22 @@ const MarketplaceContent: React.FC = () => {
           ? ''
           : 'max-w-7xl mx-auto px-2 sm:px-4 pb-12'
       }`}>
-        {activeView === 'home' && <HomePage />}
-        {activeView === 'browse' && <BrowsePage />}
-        {activeView === 'book-details' && <BookDetailsPage />}
-        {activeView === 'sell' && <SellBookPage />}
-        {activeView === 'orders' && <OrdersPage />}
-        {activeView === 'wishlist' && <WishlistPage />}
-        {activeView === 'notifications' && <NotificationsPage />}
-        {activeView === 'profile' && <ProfilePage />}
-        {activeView === 'admin' && (isAdmin ? <AdminDashboard /> : <AdminAccessDenied />)}
+        <Suspense fallback={
+          <div className="min-h-[400px] flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-8 h-8 text-[#ef4d23] animate-spin" />
+            <p className="text-xs text-neutral-400 font-mono">Loading page...</p>
+          </div>
+        }>
+          {activeView === 'home' && <HomePage />}
+          {activeView === 'browse' && <BrowsePage />}
+          {activeView === 'book-details' && <BookDetailsPage />}
+          {activeView === 'sell' && <SellBookPage />}
+          {activeView === 'orders' && <OrdersPage />}
+          {activeView === 'wishlist' && <WishlistPage />}
+          {activeView === 'notifications' && <NotificationsPage />}
+          {activeView === 'profile' && <ProfilePage />}
+          {activeView === 'admin' && (isAdmin ? <AdminDashboard /> : <AdminAccessDenied />)}
+        </Suspense>
       </main>
 
       {/* Bottom Floating Glass Navigation Dock */}
@@ -145,7 +153,11 @@ const AppContent: React.FC = () => {
 
 // ─── Root App (auth context lives here, marketplace inside) ─────────────────
 export function App() {
-  return <AppContent />;
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
 }
 
 export default App;

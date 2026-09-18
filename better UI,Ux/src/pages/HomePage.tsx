@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
 import {
   TrendingDown,
   TrendingUp,
@@ -183,16 +182,13 @@ export const HomePage: React.FC = () => {
             </p>
 
             {/* CTA button (Frosted Glass with light sheen & hover spring animation) */}
-            <motion.button
+            <button
               type="button"
               onClick={() => {
                 setActiveView('browse');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                window.scrollTo({ top: 0, behavior: 'instant' });
               }}
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.96 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 18 }}
-              className="group relative overflow-hidden mt-3.5 sm:mt-8 inline-flex items-center gap-2.5 sm:gap-3.5 glass-cta-button text-neutral-900 rounded-full pl-5 sm:pl-7 pr-1.5 sm:pr-2 py-1.5 sm:py-2.5 text-[13px] sm:text-[14px] font-semibold transition-all cursor-pointer select-none"
+              className="group relative overflow-hidden mt-3.5 sm:mt-8 inline-flex items-center gap-2.5 sm:gap-3.5 glass-cta-button text-neutral-900 rounded-full pl-5 sm:pl-7 pr-1.5 sm:pr-2 py-1.5 sm:py-2.5 text-[13px] sm:text-[14px] font-semibold transition-transform duration-200 ease-out hover:scale-[1.04] hover:-translate-y-0.5 active:scale-95 cursor-pointer select-none"
             >
               {/* Animated Glass Light Sheen */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-full">
@@ -206,7 +202,7 @@ export const HomePage: React.FC = () => {
               <span className="relative z-10 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#ef4d23] text-white flex items-center justify-center shadow-xs transition-transform duration-300 ease-out group-hover:translate-x-1 group-hover:shadow-[0_0_14px_rgba(239,77,35,0.65)]">
                 <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200" />
               </span>
-            </motion.button>
+            </button>
           </div>
 
           {/* Dashboard Preview Tray */}

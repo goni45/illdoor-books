@@ -14,6 +14,11 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   isMobileDrawer = false,
 }) => {
   const { filters, setFilters, resetFilters } = useMarketplace();
+  const [draftMax, setDraftMax] = React.useState(filters.maxPrice);
+
+  React.useEffect(() => {
+    setDraftMax(filters.maxPrice);
+  }, [filters.maxPrice]);
 
   const handleDepartmentChange = (dept: string) => {
     setFilters((prev) => ({ ...prev, department: dept }));
@@ -153,20 +158,22 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           <span className="font-semibold uppercase tracking-wider text-neutral-500">
             Max Price
           </span>
-          <span className="font-bold text-[#0b0f1a]">৳{filters.maxPrice}</span>
+          <span className="font-bold text-[#0b0f1a]">৳{draftMax}</span>
         </div>
         <input
           type="range"
           min={100}
-          max={1500}
+          max={2000}
           step={50}
-          value={filters.maxPrice}
-          onChange={(e) => handleMaxPriceChange(Number(e.target.value))}
+          value={draftMax}
+          onChange={(e) => setDraftMax(Number(e.target.value))}
+          onPointerUp={() => handleMaxPriceChange(draftMax)}
+          onKeyUp={() => handleMaxPriceChange(draftMax)}
           className="w-full accent-[#ef4d23] cursor-pointer"
         />
         <div className="flex justify-between text-[11px] text-neutral-400">
           <span>৳100</span>
-          <span>৳1,500</span>
+          <span>৳2,000</span>
         </div>
       </div>
 

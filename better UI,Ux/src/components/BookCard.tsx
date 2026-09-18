@@ -11,7 +11,7 @@ interface BookCardProps {
   priority?: boolean;
 }
 
-export const BookCard: React.FC<BookCardProps> = ({ book }) => {
+const BookCardImpl: React.FC<BookCardProps> = ({ book, priority = false }) => {
   const { navigateToBook, toggleWishlist, isWishlisted } = useMarketplace();
   const wishlisted = isWishlisted(book.id);
 
@@ -26,7 +26,11 @@ export const BookCard: React.FC<BookCardProps> = ({ book }) => {
         <img
           src={book.images[0] || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop&q=80'}
           alt={book.title}
-          loading="lazy"
+          width={600}
+          height={450}
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
+          decoding="async"
           className="w-full h-full object-cover object-center group-hover:scale-[1.03] transition-transform duration-300"
         />
 
@@ -96,3 +100,6 @@ export const BookCard: React.FC<BookCardProps> = ({ book }) => {
     </div>
   );
 };
+
+export const BookCard = React.memo(BookCardImpl);
+

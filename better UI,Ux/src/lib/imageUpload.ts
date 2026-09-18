@@ -2,8 +2,8 @@ import imageCompression from 'browser-image-compression';
 import { supabase } from './supabase';
 
 const COMPRESSION_OPTIONS = {
-  maxSizeMB: 0.7,
-  maxWidthOrHeight: 1920,
+  maxSizeMB: 0.5,
+  maxWidthOrHeight: 1280,
   useWebWorker: true,
   fileType: 'image/webp',
 };
@@ -36,7 +36,7 @@ export async function uploadBookImage(
   const { error } = await supabase.storage
     .from('book-covers')
     .upload(storagePath, fileToUpload, {
-      cacheControl: '3600',
+      cacheControl: '31536000',
       upsert: false,
     });
 
