@@ -1,0 +1,6 @@
+{
+  "name": "Polytechnic Book Marketplace",
+  "description": "Campus-focused peer-to-peer marketplace where Polytechnic students buy and sell used academic books with verified campus pickup points.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

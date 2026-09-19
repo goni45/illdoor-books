@@ -1,0 +1,347 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Ambient Flowing Light Wave across the background */
+@keyframes ambient-wave-sweep {
+  0% {
+    transform: translateY(-130%) rotate(-12deg);
+    opacity: 0.1;
+  }
+  30% {
+    opacity: 0.8;
+  }
+  70% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(230%) rotate(-12deg);
+    opacity: 0.1;
+  }
+}
+
+.ambient-wave-beam {
+  position: absolute;
+  left: -25%;
+  right: -25%;
+  height: 420px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.45) 30%,
+    rgba(239, 77, 35, 0.09) 50%,
+    rgba(255, 255, 255, 0.35) 70%,
+    transparent 100%
+  );
+  animation: ambient-wave-sweep 9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+.font-instrument {
+  font-family: 'Instrument Serif', Georgia, serif;
+}
+
+/* Glass Card Utility (Dark) */
+.glass-card {
+  background: linear-gradient(180deg, rgba(20, 24, 45, 0.52), rgba(12, 16, 32, 0.65));
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Glass Pill / Button (Dark) */
+.glass-pill {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* White Glass Card Utility (Transparent Frosted Glass matching CTA button) */
+.glass-card-white {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.18) 100%);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 24px 50px -12px rgba(15, 23, 42, 0.14), inset 0 1px 2px rgba(255, 255, 255, 0.8), inset 0 -1px 1px rgba(255, 255, 255, 0.2);
+}
+
+/* Inner White Glass Card */
+.glass-card-white-inner {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.48) 100%);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08), inset 0 1px 1.5px rgba(255, 255, 255, 0.9);
+}
+
+/* White Glass Pill / Controls */
+.glass-pill-white {
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8);
+}
+
+/* Glass CTA Button */
+.glass-cta-button {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.16) 100%);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 10px 28px -4px rgba(15, 23, 42, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.75), inset 0 -1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.glass-cta-button:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.52) 0%, rgba(255, 255, 255, 0.26) 100%);
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 14px 34px -4px rgba(239, 77, 35, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.9), inset 0 -1px 1px rgba(255, 255, 255, 0.3);
+}
+
+/* Glass Sheen Animation */
+@keyframes glass-sheen {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  50%, 100% {
+    transform: translateX(200%) skewX(-20deg);
+  }
+}
+
+.animate-glass-sheen {
+  animation: glass-sheen 3.2s infinite cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==========================================================================
+   ILLDOOR Animated Logo System
+   ========================================================================== */
+
+.illdoor-wrap {
+  --bg: #14110f;
+  --bg-2: #1d1815;
+  --door-a: #ef4d23;
+  --door-b: #ff7a45;
+  --letter: #17130f;
+  --ink: #201410;
+  --glow: rgba(239, 77, 35, 0.55);
+  --slot: 84px;
+  font-family: 'Baloo 2', system-ui, sans-serif;
+  user-select: none;
+}
+
+.illdoor-wrap.dark-theme {
+  --letter: #ffffff;
+  --ink: #0f172a;
+}
+
+.illdoor-stage {
+  position: relative;
+  width: calc(var(--slot) * 7);
+  height: 110px;
+}
+
+.illdoor-letter {
+  position: absolute;
+  top: 0;
+  width: var(--slot);
+  height: 110px;
+  z-index: 1;
+  animation: illdoor-travel 6.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  will-change: transform;
+}
+
+.illdoor-letter.i  { left: 0;                      --start: 262px; }
+.illdoor-letter.l1 { left: var(--slot);            --start: 178px; }
+.illdoor-letter.l2 { left: calc(var(--slot) * 2);  --start: 94px;  }
+.illdoor-letter.o1 { left: calc(var(--slot) * 4);  --start: -74px; }
+.illdoor-letter.o2 { left: calc(var(--slot) * 5);  --start: -158px;}
+.illdoor-letter.r  { left: calc(var(--slot) * 6);  --start: -242px;}
+
+.illdoor-glyph,
+.illdoor-ball {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.illdoor-glyph {
+  font-size: 64px;
+  font-weight: 800;
+  color: var(--letter);
+  text-shadow: 0 0 12px rgba(239, 77, 35, 0.22);
+  animation: illdoor-glyphMorph 6.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.illdoor-ball {
+  animation: illdoor-ballFade 6.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.illdoor-ball::before {
+  content: "";
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.4), transparent 45%),
+    repeating-conic-gradient(var(--ink) 0deg 12deg, #4a352a 12deg 24deg);
+  box-shadow: 0 0 10px var(--glow);
+  animation: illdoor-tireSpin 1.6s linear infinite;
+}
+
+.illdoor-ball::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, var(--door-a), var(--door-b));
+}
+
+@keyframes illdoor-travel {
+  0%, 6%      { transform: translateX(var(--start)); }
+  26%, 70%    { transform: translateX(0); }
+  94%, 100%   { transform: translateX(var(--start)); }
+}
+
+@keyframes illdoor-glyphMorph {
+  0%, 6%    { opacity: 0; transform: scale(0.3); }
+  22%       { opacity: 0; transform: scale(0.55); }
+  26%, 70%  { opacity: 1; transform: scale(1); }
+  74%       { opacity: 0; transform: scale(0.55); }
+  94%, 100% { opacity: 0; transform: scale(0.3); }
+}
+
+@keyframes illdoor-ballFade {
+  0%, 6%    { opacity: 0; }
+  10%, 22%  { opacity: 1; }
+  26%, 70%  { opacity: 0; }
+  74%, 90%  { opacity: 1; }
+  94%, 100% { opacity: 0; }
+}
+
+@keyframes illdoor-tireSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.illdoor-door {
+  position: absolute;
+  top: 0;
+  left: calc(var(--slot) * 3 + (var(--slot) - 70px) / 2);
+  width: 70px;
+  height: 110px;
+  z-index: 5;
+  filter: drop-shadow(0 0 0 var(--glow));
+  animation: illdoor-doorGlow 6.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.illdoor-door svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.illdoor-door-leaf {
+  transform-box: fill-box;
+  transform-origin: 0px 45px;
+  animation: illdoor-doorSwing 6.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes illdoor-doorSwing {
+  0%, 6%    { transform: scaleX(0.1); opacity: 0.85; }
+  18%       { transform: scaleX(1);   opacity: 1;    }
+  70%       { transform: scaleX(1);   opacity: 1;    }
+  86%       { transform: scaleX(0.1); opacity: 0.85; }
+  100%      { transform: scaleX(0.1); opacity: 0.85; }
+}
+
+@keyframes illdoor-doorGlow {
+  0%, 6%    { filter: drop-shadow(0 0 0 var(--glow)); }
+  18%       { filter: drop-shadow(0 0 16px var(--glow)); }
+  70%       { filter: drop-shadow(0 0 8px var(--glow)); }
+  86%       { filter: drop-shadow(0 0 16px var(--glow)); }
+  100%      { filter: drop-shadow(0 0 0 var(--glow)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .illdoor-letter,
+  .illdoor-glyph,
+  .illdoor-ball,
+  .illdoor-ball::before,
+  .illdoor-door,
+  .illdoor-door-leaf {
+    animation: none !important;
+  }
+  .illdoor-letter { transform: translateX(0); }
+  .illdoor-glyph { opacity: 1; transform: scale(1); }
+  .illdoor-ball { opacity: 0; }
+  .illdoor-door-leaf { transform: scaleX(1); opacity: 1; }
+}
+
+/* ============================================================
+   UI Transitions & Animations (P0-9)
+   Provides classes matching animate-in, fade-in, zoom-in-95,
+   slide-in-from-top-2, and slide-in-from-right.
+   ============================================================ */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes zoom-in-95 {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slide-in-from-top-2 {
+  from { opacity: 0; transform: translateY(-0.5rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-from-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.animate-in {
+  animation-duration: 0.2s;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fade-in {
+  animation-name: fade-in;
+}
+
+.zoom-in-95 {
+  animation-name: zoom-in-95;
+}
+
+.slide-in-from-top-2 {
+  animation-name: slide-in-from-top-2;
+}
+
+.slide-in-from-right {
+  animation-name: slide-in-from-right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  .fade-in,
+  .zoom-in-95,
+  .slide-in-from-top-2,
+  .slide-in-from-right {
+    animation: none !important;
+  }
+}
+
