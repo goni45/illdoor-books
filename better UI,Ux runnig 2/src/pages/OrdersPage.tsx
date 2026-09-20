@@ -443,7 +443,7 @@ export const OrdersPage: React.FC = () => {
                 <OrderTimeline order={selectedOrder} />
 
                 {/* Post-pickup review — only for verified (completed) transactions */}
-                {selectedOrder.status === 'completed' && (
+                {selectedOrder.status === 'completed' && selectedOrder.orderType !== 'semester_bundle' && (
                   <div className="bg-white rounded-3xl border border-[#e5e5e5] p-5 sm:p-6 shadow-xs space-y-4">
                     <div className="flex items-center gap-2 pb-3 border-b border-[#e5e5e5]">
                       <Star className="w-5 h-5 text-amber-500" />

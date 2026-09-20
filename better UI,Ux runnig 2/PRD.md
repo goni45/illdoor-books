@@ -831,3 +831,16 @@ Only two publication values are accepted throughout the marketplace: **Haque Pub
 - Allow admins to edit publication cover, source URL, author override, edition label, and reference price.
 - Keep the Technical slot empty but fully supported until a source is available.
 - Import external catalog manifests only by exact subject-code match and only copy images from explicitly approved hosts.
+
+## Version 2.1 addendum — personalized feed and complete-semester sets
+
+- After sign-in, a normal student's visible Book Models are restricted to curriculum mappings for the profile department across all semesters.
+- Visible seller offers and calculated stock/price/seller details are restricted to the student's institute.
+- Department catalog models with no same-institute offer remain visible with Stock 0 and Sell this book.
+- Admins may inspect all departments and institutes.
+- Sellers may publish one individual book or select one/multiple semesters in a single full-set publishing flow.
+- Every selected semester is a separate, independently purchasable bundle containing every active catalog book for that department and semester.
+- A buyer cannot purchase one item directly from a full-set bundle, but may submit a single-book request to the seller.
+- Bundle checkout must be atomic, same-institute, own-sale protected, row-locked, and integrated with pickup PIN and escrow lifecycle.
+
+Required additive migration: `schema-personalized-feed-semester-bundles.sql`.

@@ -32,7 +32,7 @@ function mapProfileToUser(profile: Record<string, unknown>, email: string): Stud
     institute: profile.institute as string,
     department: profile.department as string,
     semester: profile.semester as string,
-    avatar: (profile.avatar_url as string) || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(profile.full_name as string)}&backgroundColor=ef4d23`,
+    avatar: (profile.avatar_url as string) || ('https:' + '//api.dicebear.com/8.x/initials/svg?seed=' + encodeURIComponent(profile.full_name as string) + '&backgroundColor=ef4d23'),
     isVerified: (profile.is_verified as boolean) || false,
     joinedDate: new Date(profile.created_at as string).toLocaleDateString('en-BD', {
       year: 'numeric',

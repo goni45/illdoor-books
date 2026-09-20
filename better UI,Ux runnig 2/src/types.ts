@@ -101,6 +101,44 @@ export interface BookListing {
   lowestPrice?: number;
 }
 
+export interface SemesterBundleItem {
+  id: string;
+  bundleId: string;
+  bookId: string;
+  book: BookListing;
+  publication: Publication;
+  condition: Condition;
+  conditionDetails: string;
+}
+
+export interface SemesterBundle {
+  id: string;
+  batchId: string;
+  seller: StudentUser;
+  department: string;
+  semester: string;
+  originalPrice: number;
+  sellingPrice: number;
+  savings: number;
+  pickupPointId: string;
+  pickupPointName: string;
+  availability: BookAvailability;
+  items: SemesterBundleItem[];
+  createdAt: string;
+  createdAtRaw: string;
+}
+
+export interface BundleSingleBookRequest {
+  id: string;
+  bundleId: string;
+  bookId: string;
+  buyerId: string;
+  sellerId: string;
+  message: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
+  createdAt: string;
+}
+
 export interface PickupPoint {
   id: string;
   name: string;
@@ -133,7 +171,9 @@ export interface OrderTimelineEvent {
 export interface Order {
   id: string;
   orderNumber: string;
-  sellerListingId: string;
+  sellerListingId?: string;
+  semesterBundleId?: string;
+  orderType?: 'single' | 'semester_bundle';
   book: BookListing;
   buyer: StudentUser;
   seller: StudentUser;
@@ -243,6 +283,7 @@ export type ActiveView =
   | 'home'
   | 'browse'
   | 'book-details'
+  | 'semester-bundles'
   | 'sell'
   | 'orders'
   | 'wishlist'

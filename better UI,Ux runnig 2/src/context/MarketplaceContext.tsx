@@ -43,7 +43,7 @@ function mapDbProfileToStudentUser(prof: Record<string, unknown> | null, fallbac
     department: (prof.department as string) || '',
     semester: (prof.semester as string) || '',
     avatar: (prof.avatar_url as string) ||
-      `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent((prof.full_name as string) || 'Student')}&backgroundColor=ef4d23`,
+      ('https:' + '//api.dicebear.com/8.x/initials/svg?seed=' + encodeURIComponent((prof.full_name as string) || 'Student') + '&backgroundColor=ef4d23'),
     isVerified: Boolean(prof.is_verified),
     joinedDate: prof.created_at ? new Date(prof.created_at as string).toLocaleDateString('en-BD', { year: 'numeric', month: 'long' }) : '',
     rating: parseFloat((prof.rating as number)?.toString() || '0') || 0,
@@ -146,7 +146,9 @@ function mapDbOrderToOrder(row: Record<string, unknown>, book: BookListing, buye
   return {
     id: row.id as string,
     orderNumber: row.order_number as string,
-    sellerListingId: row.seller_listing_id as string,
+    sellerListingId: (row.seller_listing_id as string) || undefined,
+    semesterBundleId: (row.semester_bundle_id as string) || undefined,
+    orderType: row.semester_bundle_id ? 'semester_bundle' : 'single',
     book,
     buyer,
     seller,
@@ -178,7 +180,7 @@ function mapDbBookRequest(row: Record<string, unknown>): BookRequest {
     requesterId: row.requester_id as string,
     requesterName: (prof.full_name as string) || 'Student',
     requesterAvatar: (prof.avatar_url as string) ||
-      `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent((prof.full_name as string) || 'Student')}&backgroundColor=ef4d23`,
+      ('https:' + '//api.dicebear.com/8.x/initials/svg?seed=' + encodeURIComponent((prof.full_name as string) || 'Student') + '&backgroundColor=ef4d23'),
     requesterDepartment: (prof.department as string) || '',
     title: row.title as string,
     subjectCode: row.subject_code as string,
@@ -304,7 +306,8 @@ const defaultFilters: FilterState = {
 /** Maps a DB review row (with joined reviewer + book) to the app's Review shape */
 function mapDbReviewToReview(row: Record<string, unknown>): Review {
   const reviewer = (row.reviewer ?? {}) as Record<string, unknown>;
-  const book = (row.book ?? {}) as Record<string, unknown>;
+  const listing = (row.listing ?? {}) as Record<string, unknown>;
+  const book = (listing.books ?? {}) as Record<string, unknown>;
   const department = [reviewer.department, reviewer.semester].filter(Boolean).join(' • ');
 
   return {
@@ -439,22 +442,47 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       *, curriculum_entries(*), book_publication_editions(*), seller_listings(*, profiles(id,full_name,avatar_url,is_verified,is_admin,rating,total_sales,total_purchases,institute,department,semester,created_at))
     `).order('created_at',{ascending:false});
     if (error || !data) { console.warn('Failed to fetch book models:', error?.message); setBooks([]); return; }
-    const institute = isAdmin ? '' : profile?.institute?.trim();
-    const mapped=data.map(row=>mapDbBookToListing(row as unknown as Record<string,unknown>)).map(book=>applyVisibleOffers(book,institute?(book.offers??[]).filter(o=>o.seller.institute===institute):(book.offers??[]))); setBooks(mapped);
+    const institute = isAdmin ? '' : profile?.institute?.trim().toLowerCase();
+    const department = isAdmin ? '' : profile?.department?.trim().toLowerCase();
+    const mapped = data
+      .map((row) => mapDbBookToListing(row as unknown as Record<string, unknown>))
+      .filter((book) => !department || (book.curriculumEntries ?? []).some(
+        (entry) => entry.department.trim().toLowerCase() === department,
+      ) || book.department.trim().toLowerCase() === department)
+      .map((book) => applyVisibleOffers(
+        book,
+        institute
+          ? (book.offers ?? []).filter((offer) => offer.seller.institute.trim().toLowerCase() === institute)
+          : (book.offers ?? []),
+      ));
+    setBooks(mapped);
   }, [profile?.institute,isAdmin]);
 
   // ── Fetch orders ─────────────────────────────────────────────────────────
   const refreshOrders = useCallback(async () => {
     if (!user) return;
-    let q=supabase.from('orders').select(`*, seller_listings(*, books(*, book_publication_editions(*)), profiles(id,full_name,avatar_url,is_verified,is_admin,rating,total_sales,total_purchases,institute,department,semester,created_at)), buyer:profiles!buyer_id(*), seller:profiles!seller_id(*), pickup_points(*)`);
+    let q=supabase.from('orders').select(`*, seller_listings(*, books(*, book_publication_editions(*)), profiles(id,full_name,avatar_url,is_verified,is_admin,rating,total_sales,total_purchases,institute,department,semester,created_at)), semester_bundles(*, semester_bundle_items(*, books(*, book_publication_editions(*)))), buyer:profiles!buyer_id(*), seller:profiles!seller_id(*), pickup_points(*)`);
     if(!isAdmin) q=q.or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
     const {data,error}=await q.order('created_at',{ascending:false});
     if(error||!data){console.warn('Order fetch failed:',error?.message);return;}
     const mapped:Order[]=data.map((raw:any)=>{
-      const l=raw.seller_listings||{}; const model=l.books||{};
+      const l=raw.seller_listings||{}; const bundle=raw.semester_bundles||{}; const model=l.books||{};
       const seller=mapDbProfileToStudentUser(raw.seller,raw.seller_id);
       const offer={...l,profiles:raw.seller};
-      const book=mapDbBookToListing({...model,seller_listings:[offer]});
+      const firstBundleBook=bundle.semester_bundle_items?.[0]?.books;
+      const book=raw.semester_bundle_id
+        ? mapDbBookToListing({
+            ...(firstBundleBook || {}),
+            id:`bundle-${bundle.id}`,
+            title:`${bundle.semester} Complete Book Set`,
+            subject_code:'FULL SET',
+            subject_name:`${bundle.department} ${bundle.semester}`,
+            department:bundle.department,
+            semester:bundle.semester,
+            seller_listings:[],
+            created_at:bundle.created_at,
+          })
+        : mapDbBookToListing({...model,seller_listings:[offer]});
       const pickupRow=raw.pickup_points||{};
       const pickup:PickupPoint={id:pickupRow.id||raw.pickup_point_id,name:pickupRow.name||'Campus Desk',campus:pickupRow.campus||'',locationDetail:pickupRow.location_detail||'',operatingHours:pickupRow.operating_hours||'',contactPerson:pickupRow.contact_person||'',phone:pickupRow.phone||''};
       return mapDbOrderToOrder(raw,book,mapDbProfileToStudentUser(raw.buyer,raw.buyer_id),seller,pickup);
@@ -543,7 +571,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const { data, error } = await supabase
       .from('reviews')
-      .select('*, reviewer:profiles!reviews_reviewer_id_fkey(full_name, department, semester), book:seller_listings(title)')
+      .select('*, reviewer:profiles!reviews_reviewer_id_fkey(full_name, department, semester), listing:seller_listings(books(title))')
       .or(`reviewee_id.eq.${user.id},reviewer_id.eq.${user.id}`)
       .order('created_at', { ascending: false });
 
@@ -989,6 +1017,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const order = orders.find((o) => o.id === orderId);
     if (!order) return { success: false, message: 'Order not found.' };
+    if (order.orderType === 'semester_bundle') return { success: false, message: 'Bundle reviews will be enabled in a later schema update.' };
     if (order.status !== 'completed') {
       return { success: false, message: 'Reviews unlock once the pickup PIN is verified.' };
     }

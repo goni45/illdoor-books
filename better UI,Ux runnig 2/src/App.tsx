@@ -21,6 +21,7 @@ const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then((m) => ({ default: m.AdminDashboard })));
 const RequestsPage = lazy(() => import('./pages/RequestsPage').then((m) => ({ default: m.RequestsPage })));
+const SemesterBundlesPage = lazy(() => import('./pages/SemesterBundlesPage').then((m) => ({ default: m.SemesterBundlesPage })));
 
 // ─── Loading screen while auth initializes ───────────────────────────────────
 const LoadingScreen: React.FC = () => (
@@ -86,6 +87,7 @@ const MarketplaceContent: React.FC = () => {
       'home',
       'browse',
       'book-details',
+      'semester-bundles',
       'sell',
       'orders',
       'wishlist',
@@ -141,6 +143,7 @@ const MarketplaceContent: React.FC = () => {
           {activeView === 'home' && <HomePage />}
           {activeView === 'browse' && <BrowsePage />}
           {activeView === 'book-details' && <BookDetailsPage />}
+          {activeView === 'semester-bundles' && <SemesterBundlesPage />}
           {activeView === 'sell' && <SellBookPage />}
           {activeView === 'orders' && <OrdersPage />}
           {activeView === 'wishlist' && <WishlistPage />}

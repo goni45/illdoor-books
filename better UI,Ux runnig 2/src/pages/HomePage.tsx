@@ -10,11 +10,13 @@ import {
   Building2,
   Tag,
   FileQuestion,
+  Layers3,
 } from 'lucide-react';
 import { useMarketplace, getBookListingRank } from '../context/MarketplaceContext';
 import { Navbar } from '../components/Navbar';
 import { BookCard } from '../components/BookCard';
 import { PICKUP_POINTS } from '../data/mockData';
+import { useSemesterBundles } from '../hooks/useSemesterBundles';
 
 // Reusable SVG Gauge matching the reference design
 const GaugeSvg: React.FC<{
@@ -75,6 +77,8 @@ const GaugeSvg: React.FC<{
 
 export const HomePage: React.FC = () => {
   const { books, setActiveView, applyQuickSubjectSearch, bookRequests, startSellForRequest } = useMarketplace();
+  const { bundles } = useSemesterBundles();
+  const featuredBundles = bundles.filter((bundle) => bundle.availability === 'Available').slice(0, 3);
 
   // Card 1 interactive state: Student savings / book trades
   const [savingsToggle, setSavingsToggle] = useState<'savings' | 'books'>('savings');
@@ -596,6 +600,11 @@ export const HomePage: React.FC = () => {
             ))}
           </div>
         </section>
+
+        {featuredBundles.length > 0 && <section className="space-y-4">
+          <div className="flex items-center justify-between"><div className="flex gap-2 items-center"><Layers3 className="w-5 h-5 text-[#ef4d23]"/><div><h2 className="text-lg sm:text-xl font-bold">Full Semester Sets For You</h2><p className="text-xs sm:text-sm text-neutral-500">আপনার department এবং institute-এর complete book bundles</p></div></div><button onClick={() => setActiveView('semester-bundles')} className="text-xs sm:text-sm font-semibold hover:text-[#ef4d23]">View all →</button></div>
+          <div className="grid md:grid-cols-3 gap-4">{featuredBundles.map((bundle) => <button key={bundle.id} onClick={() => setActiveView('semester-bundles')} className="text-left bg-white rounded-3xl border p-5 hover:border-[#ef4d23] transition-colors"><span className="inline-flex px-3 py-1 rounded-full bg-[#0b0f1a] text-white text-[11px] font-bold">FULL SET ONLY</span><h3 className="text-xl font-bold mt-3">{bundle.semester}</h3><p className="text-xs text-neutral-500">{bundle.items.length} books • {bundle.seller.name}</p><div className="flex justify-between items-end mt-5"><span className="text-xs text-neutral-500">{bundle.pickupPointName}</span><b className="text-xl">৳{bundle.sellingPrice}</b></div></button>)}</div>
+        </section>}
 
         {/* High Savings / Student Budget Picks */}
         <section className="bg-white rounded-3xl p-5 sm:p-8 border border-[#e5e5e5] shadow-xs space-y-4">

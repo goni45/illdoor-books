@@ -256,3 +256,16 @@ Run after `schema-publication-support.sql`:
 The UI resolves covers in this order: selected seller publication cover → common model cover → Cover Coming Soon. Admins can maintain both publication sections from the Book Model editor.
 
 A guarded manifest importer is included as `scripts/import-publication-manifest.mjs`. See `PUBLICATION_EDITION_ARCHITECTURE.md`. Website covers must not be copied to Supabase Storage until reuse permission has been confirmed.
+
+## Personalized department feed and semester bundles
+
+Apply `schema-personalized-feed-semester-bundles.sql` after the publication-edition migration.
+
+Signed-in students now see only Book Models mapped to their profile department. Seller offers and full-semester bundles are restricted to the student's institute; admins retain workspace-wide visibility. Zero-offer models in the student's department remain visible as unavailable catalog entries.
+
+The Sell flow supports:
+
+- one individual seller listing; or
+- one or more complete-semester sets published in a single batch.
+
+Each selected semester becomes an independently purchasable full-set bundle. Individual books inside a bundle cannot be purchased directly; buyers may send the seller a single-book request. Bundle checkout uses `place_semester_bundle_order`, locks the bundle, and preserves the existing pickup PIN, escrow, cancellation, and completion lifecycle.
