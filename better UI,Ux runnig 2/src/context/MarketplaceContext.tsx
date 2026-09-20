@@ -461,7 +461,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // ── Fetch orders ─────────────────────────────────────────────────────────
   const refreshOrders = useCallback(async () => {
     if (!user) return;
-    let q=supabase.from('orders').select(`*, seller_listings(*, books(*, book_publication_editions(*)), profiles(id,full_name,avatar_url,is_verified,is_admin,rating,total_sales,total_purchases,institute,department,semester,created_at)), semester_bundles(*, semester_bundle_items(*, books(*, book_publication_editions(*)))), buyer:profiles!buyer_id(*), seller:profiles!seller_id(*), pickup_points(*)`);
+    let q=supabase.from('orders').select(`*, seller_listings(*, books(*, book_publication_editions(*)), profiles(id,full_name,avatar_url,is_verified,is_admin,rating,total_sales,total_purchases,institute,department,semester,created_at)), semester_bundles(*, semester_bundle_items(*, books(*, book_publication_editions(*)))), buyer:profiles!buyer_id(id,full_name,avatar_url,is_verified,is_admin,rating,total_sales,total_purchases,institute,department,semester,created_at), seller:profiles!seller_id(id,full_name,avatar_url,is_verified,is_admin,rating,total_sales,total_purchases,institute,department,semester,created_at), pickup_points(*)`);
     if(!isAdmin) q=q.or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
     const {data,error}=await q.order('created_at',{ascending:false});
     if(error||!data){console.warn('Order fetch failed:',error?.message);return;}
@@ -905,11 +905,10 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         await Promise.all([refreshBooks(), refreshOrders(), refreshNotifications()]);
         return { orderId: data as string, error: null };
       }
-      const rpcMessage = error?.message || 'Could not place this order.';
-      if (rpcMessage.toLowerCase().includes('no longer available') || rpcMessage.toLowerCase().includes('own listing') || rpcMessage.toLowerCase().includes('not found')) {
+      const rpcMessage = error?.message || '';
+      if (rpcMessage) {
         return { orderId: '', error: rpcMessage };
       }
-      console.warn('place_order RPC unavailable or failed:', rpcMessage);
     } catch (rpcErr) {
       console.warn('place_order RPC threw error:', rpcErr);
     }
