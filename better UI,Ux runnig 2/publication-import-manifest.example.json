@@ -1,0 +1,22 @@
+[
+  {
+    "subjectCode": "26661",
+    "publication": "Haque Publication",
+    "coverImageUrl": "https://example.com/approved-cover.jpg",
+    "sourceUrl": "https://haquepublications.com/example-product",
+    "sourceProductId": "example-product-id",
+    "author": "",
+    "edition": "",
+    "referencePrice": null
+  },
+  {
+    "subjectCode": "26661",
+    "publication": "Technical Publication",
+    "coverImageUrl": "",
+    "sourceUrl": "",
+    "sourceProductId": "",
+    "author": "",
+    "edition": "",
+    "referencePrice": null
+  }
+]
