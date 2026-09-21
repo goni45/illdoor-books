@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ILLDOOR — animated logo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #14110f;
+            --bg-2: #1d1815;
+            --door-a: #ef4d23;
+            --door-b: #ff7a45;
+            --letter: #17130f;
+            --ink: #201410;
+            --glow: rgba(239, 77, 35, 0.55);
+            --slot: 84px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            font-family: 'Baloo 2', system-ui, sans-serif;
+        }
+
+        .stage {
+            padding: 4rem 3rem;
+        }
+
+        .logo {
+            position: relative;
+            width: calc(var(--slot) * 7);
+            height: 110px;
+        }
+
+        /* ---------- letters ---------- */
+
+        .letter {
+            position: absolute;
+            top: 0;
+            width: var(--slot);
+            height: 110px;
+            z-index: 1;
+            animation: travel 6.4s cubic-bezier(.65, 0, .35, 1) infinite;
+            will-change: transform;
+        }
+
+        .letter.i {
+            left: 0;
+            --start: 262px;
+        }
+
+        .letter.l1 {
+            left: var(--slot);
+            --start: 178px;
+        }
+
+        .letter.l2 {
+            left: calc(var(--slot) * 2);
+            --start: 94px;
+        }
+
+        .letter.o1 {
+            left: calc(var(--slot) * 4);
+            --start: -74px;
+        }
+
+        .letter.o2 {
+            left: calc(var(--slot) * 5);
+            --start: -158px;
+        }
+
+        .letter.r {
+            left: calc(var(--slot) * 6);
+            --start: -242px;
+        }
+
+        .glyph,
+        .ball {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .glyph {
+            font-size: 64px;
+            font-weight: 800;
+            color: var(--letter);
+            text-shadow: 0 0 12px rgba(239, 77, 35, 0.22);
+            animation: glyphMorph 6.4s cubic-bezier(.65, 0, .35, 1) infinite;
+        }
+
+        .ball {
+            animation: ballFade 6.4s cubic-bezier(.65, 0, .35, 1) infinite;
+        }
+
+        .ball::before {
+            content: "";
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .4), transparent 45%),
+                repeating-conic-gradient(var(--ink) 0deg 12deg, #4a352a 12deg 24deg);
+            box-shadow: 0 0 10px var(--glow);
+            animation: tireSpin 1.6s linear infinite;
+        }
+
+        .ball::after {
+            content: "";
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: linear-gradient(160deg, var(--door-a), var(--door-b));
+        }
+
+        @keyframes travel {
+
+            0%,
+            6% {
+                transform: translateX(var(--start));
+            }
+
+            26%,
+            70% {
+                transform: translateX(0);
+            }
+
+            94%,
+            100% {
+                transform: translateX(var(--start));
+            }
+        }
+
+        @keyframes glyphMorph {
+
+            0%,
+            6% {
+                opacity: 0;
+                transform: scale(.3);
+            }
+
+            22% {
+                opacity: 0;
+                transform: scale(.55);
+            }
+
+            26%,
+            70% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            74% {
+                opacity: 0;
+                transform: scale(.55);
+            }
+
+            94%,
+            100% {
+                opacity: 0;
+                transform: scale(.3);
+            }
+        }
+
+        @keyframes ballFade {
+
+            0%,
+            6% {
+                opacity: 0;
+            }
+
+            10%,
+            22% {
+                opacity: 1;
+            }
+
+            26%,
+            70% {
+                opacity: 0;
+            }
+
+            74%,
+            90% {
+                opacity: 1;
+            }
+
+            94%,
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes tireSpin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ---------- door (D silhouette with an open door inside) ---------- */
+
+        .door {
+            position: absolute;
+            top: 0;
+            left: calc(var(--slot) * 3 + (var(--slot) - 70px) / 2);
+            width: 70px;
+            height: 110px;
+            z-index: 5;
+            filter: drop-shadow(0 0 0 var(--glow));
+            animation: doorGlow 6.4s cubic-bezier(.65, 0, .35, 1) infinite;
+        }
+
+        .door svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .door-leaf {
+            transform-box: fill-box;
+            transform-origin: 0px 45px;
+            /* hinge at the D's flat left edge */
+            animation: doorSwing 6.4s cubic-bezier(.65, 0, .35, 1) infinite;
+        }
+
+        @keyframes doorSwing {
+
+            0%,
+            6% {
+                transform: scaleX(.1);
+                opacity: .85;
+            }
+
+            18% {
+                transform: scaleX(1);
+                opacity: 1;
+            }
+
+            70% {
+                transform: scaleX(1);
+                opacity: 1;
+            }
+
+            86% {
+                transform: scaleX(.1);
+                opacity: .85;
+            }
+
+            100% {
+                transform: scaleX(.1);
+                opacity: .85;
+            }
+        }
+
+        .door-halo {
+            /* static glow platform behind the D — never moves */
+        }
+
+        @keyframes doorGlow {
+
+            0%,
+            6% {
+                filter: drop-shadow(0 0 0 var(--glow));
+            }
+
+            18% {
+                filter: drop-shadow(0 0 16px var(--glow));
+            }
+
+            70% {
+                filter: drop-shadow(0 0 8px var(--glow));
+            }
+
+            86% {
+                filter: drop-shadow(0 0 16px var(--glow));
+            }
+
+            100% {
+                filter: drop-shadow(0 0 0 var(--glow));
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            .letter,
+            .glyph,
+            .ball,
+            .ball::before,
+            .door,
+            .door-leaf {
+                animation: none !important;
+            }
+
+            .letter {
+                transform: translateX(0);
+            }
+
+            .glyph {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            .ball {
+                opacity: 0;
+            }
+
+            .door-leaf {
+                transform: scaleX(1);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="stage">
+        <div class="logo">
+            <span class="letter i"><span class="glyph">I</span><span class="ball"></span></span>
+            <span class="letter l1"><span class="glyph">L</span><span class="ball"></span></span>
+            <span class="letter l2"><span class="glyph">L</span><span class="ball"></span></span>
+
+            <div class="door">
+                <svg viewBox="0 0 70 110" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="doorGrad" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ef4d23" />
+                            <stop offset="100%" stop-color="#ff7a45" />
+                        </linearGradient>
+                        <filter id="haloBlur" x="-60%" y="-60%" width="220%" height="220%">
+                            <feGaussianBlur stdDeviation="3.2" />
+                        </filter>
+                    </defs>
+
+                    <!-- static D-shaped platform/halo sitting behind the door — never moves -->
+                    <path class="door-halo" d="M3,4 H27 A51,51 0 0 1 27,106 H3 Z" fill="url(#doorGrad)" opacity="0.18"
+                        filter="url(#haloBlur)" />
+
+                    <!-- the D itself is the door leaf: it swings open/closed on its flat left edge -->
+                    <g class="door-leaf">
+                        <path d="M8,10 H26 A44,44 0 0 1 26,100 H8 Z" fill="url(#doorGrad)" />
+                        <circle cx="19" cy="55" r="2.2" fill="#201410" opacity="0.55" />
+                    </g>
+                </svg>
+            </div>
+
+            <span class="letter o1"><span class="glyph">O</span><span class="ball"></span></span>
+            <span class="letter o2"><span class="glyph">O</span><span class="ball"></span></span>
+            <span class="letter r"><span class="glyph">R</span><span class="ball"></span></span>
+        </div>
+    </div>
+</body>
+
+</html>
