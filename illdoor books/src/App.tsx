@@ -13,8 +13,13 @@ import { AlertTriangle } from 'lucide-react';
 import { supabaseConfigError } from './lib/supabase';
 import { AppErrorBoundary } from './components/common/AppErrorBoundary';
 
-import { Routes, Route, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, useNavigationType, Navigate, useParams } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
+
+const BookRedirect: React.FC = () => {
+  const { bookId } = useParams<{ bookId: string }>();
+  return <Navigate to={bookId ? `/books/${bookId}` : '/books'} replace />;
+};
 
 const BookDetailsPage = lazy(() => import('./pages/BookDetailsPage').then((m) => ({ default: m.BookDetailsPage })));
 const SellBookPage = lazy(() => import('./pages/SellBookPage').then((m) => ({ default: m.SellBookPage })));
@@ -198,6 +203,8 @@ const MarketplaceContent: React.FC = () => {
             <Route path="/" element={<HomePage />} />
             <Route path="/books" element={<BrowsePage />} />
             <Route path="/books/:bookId" element={<BookDetailsPage />} />
+            <Route path="/book" element={<Navigate to="/books" replace />} />
+            <Route path="/book/:bookId" element={<BookRedirect />} />
             <Route path="/bundles" element={<SemesterBundlesPage />} />
             <Route
               path="/sell"
