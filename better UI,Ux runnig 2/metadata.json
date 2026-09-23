@@ -1,6 +1,0 @@
-{
-  "name": "Polytechnic Book Marketplace",
-  "description": "পলিটেকনিক শিক্ষার্থীদের জন্য ব্যবহৃত অ্যাকাডেমিক বই কেনাবেচার নির্ভরযোগ্য ক্যাম্পাস মার্কেটপ্লেস ও নিরাপদ পিকআপ পয়েন্ট।",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
