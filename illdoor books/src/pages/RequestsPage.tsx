@@ -25,6 +25,7 @@ import {
   School,
   ExternalLink,
 } from 'lucide-react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { DEPARTMENTS, SEMESTERS } from '../data/mockData';
 import { UserAvatar } from '../components/common/UserAvatar';
@@ -50,6 +51,9 @@ export const RequestsPage: React.FC = () => {
     isAuthenticated,
     openAuthModal,
   } = useMarketplace();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
 
   const [activeTab, setActiveTab] = useState<'all' | 'my'>('all');
   const [filterType, setFilterType] = useState<'all' | 'single' | 'semester'>('all');
@@ -172,12 +176,17 @@ export const RequestsPage: React.FC = () => {
 
   // Open full Contact Modal
   const handleOpenContactModal = async (req: BookRequest) => {
+    setSelectedRequestForContact(req);
+
     if (!isAuthenticated) {
-      openAuthModal('login', 'শিক্ষার্থীর সাথে যোগাযোগ করতে লগইন করুন');
+      setContactModalData({
+        phone: req.requesterPhone,
+        whatsapp: req.requesterWhatsapp,
+        errorMessage: 'শিক্ষার্থীর যোগাযোগের নম্বর দেখতে ও চ্যাট করতে দয়া করে লগইন করুন',
+      });
       return;
     }
 
-    setSelectedRequestForContact(req);
     setLoadingContactId(req.id);
     const res = await revealRequesterContact(req.id);
     setLoadingContactId(null);
@@ -187,6 +196,27 @@ export const RequestsPage: React.FC = () => {
       errorMessage: res.message,
     });
   };
+
+  const handleCloseContactModal = () => {
+    setSelectedRequestForContact(null);
+    setContactModalData({});
+    if (searchParams.has('requestId')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('requestId');
+      setSearchParams(next, { replace: true });
+    }
+  };
+
+  // Automatically open modal if requestId is specified in URL query (?requestId=...) or navigation state
+  useEffect(() => {
+    const targetId = searchParams.get('requestId') || (location.state as any)?.selectedRequestId;
+    if (targetId && bookRequests.length > 0) {
+      const found = bookRequests.find((r) => r.id === targetId);
+      if (found) {
+        handleOpenContactModal(found);
+      }
+    }
+  }, [searchParams, location.state, bookRequests]);
 
   // Filter requests
   const filteredRequests = useMemo(() => {
@@ -753,11 +783,11 @@ export const RequestsPage: React.FC = () => {
                           {isBundle ? (
                             <>
                               <Layers3 className="w-3.5 h-3.5 text-[#ef4d23]" />
-                              <span>আমার কাছে এই সেট আছে (বিস্তারিত ও লিস্টিং)</span>
+                              <span>আমার কাছে এই সেট আছে (তথ্য ও যোগাযোগ)</span>
                             </>
                           ) : (
                             <>
-                              <span>আমার কাছে বইটি আছে (বিস্তারিত ও লিস্টিং)</span>
+                              <span>আমার কাছে বইটি আছে (তথ্য ও যোগাযোগ)</span>
                               <ArrowRight className="w-3 h-3 text-neutral-400" />
                             </>
                           )}
@@ -776,7 +806,7 @@ export const RequestsPage: React.FC = () => {
       {selectedRequestForContact && (
         <ContactRequesterModal
           isOpen={Boolean(selectedRequestForContact)}
-          onClose={() => setSelectedRequestForContact(null)}
+          onClose={handleCloseContactModal}
           request={selectedRequestForContact}
           contactData={contactModalData}
           onStartSell={(req) => startSellForRequest(req)}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   TrendingDown,
   TrendingUp,
@@ -76,6 +77,7 @@ const GaugeSvg: React.FC<{
 };
 
 export const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const { books, setActiveView, applyQuickSubjectSearch, bookRequests, startSellForRequest } = useMarketplace();
   const { bundles } = useSemesterBundles();
   const featuredBundles = bundles.filter((bundle) => bundle.availability === 'Available').slice(0, 3);
@@ -699,7 +701,11 @@ export const HomePage: React.FC = () => {
                   return (
                     <div
                       key={req.id}
-                      className={`bg-neutral-800/80 backdrop-blur-md rounded-2xl border p-4.5 flex flex-col justify-between transition-colors ${
+                      onClick={() => {
+                        navigate(`/requests?requestId=${req.id}`, { state: { selectedRequestId: req.id } });
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className={`bg-neutral-800/80 backdrop-blur-md rounded-2xl border p-4.5 flex flex-col justify-between transition-all hover:scale-[1.01] cursor-pointer ${
                         isBundle ? 'border-orange-500/40 hover:border-orange-500' : 'border-neutral-700/80 hover:border-neutral-600'
                       }`}
                     >
@@ -732,17 +738,22 @@ export const HomePage: React.FC = () => {
                       </div>
 
                       <button
-                        onClick={() => startSellForRequest(req)}
-                        className={`w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-white text-xs font-semibold transition-colors cursor-pointer ${
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/requests?requestId=${req.id}`, { state: { selectedRequestId: req.id } });
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className={`w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-white text-xs font-bold transition-all shadow-sm active:scale-[0.98] cursor-pointer ${
                           isBundle ? 'bg-[#ef4d23] hover:bg-[#d93f17]' : 'bg-[#ef4d23] hover:bg-[#d93f17]'
                         }`}
                       >
                         <span>
                           {isBundle
-                            ? 'আমার কাছে এই সেট আছে (বিক্রি করুন)'
-                            : 'আমার কাছে এই বই আছে (বিক্রি করুন)'}
+                            ? 'আমার কাছে এই সেট আছে'
+                            : 'আমার কাছে এই বই আছে'}
                         </span>
-                        <ArrowRight className="w-3 h-3" />
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   );
