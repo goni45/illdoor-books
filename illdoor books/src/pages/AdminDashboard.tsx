@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AdminUserManagementModals, type EditableListing } from '../components/AdminUserManagementModals';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -31,6 +32,13 @@ import {
   Moon,
   Clock,
   Bell,
+  Ban,
+  UserX,
+  UserCheck,
+  Phone,
+  Building2,
+  GraduationCap,
+  Info,
 } from 'lucide-react';
 import {
   getDayPrayerSchedule,
@@ -39,10 +47,11 @@ import {
   formatBengaliTime,
   PrayerName,
 } from '../lib/prayerTimes';
-import { useMarketplace } from '../context/MarketplaceContext';
+import { useMarketplace, getLocalBannedUsers, mapDbProfileToStudentUser } from '../context/MarketplaceContext';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Button } from '../components/common/Button';
 import { supabase } from '../lib/supabase';
+import type { StudentUser, Condition, BookAvailability } from '../types';
 import {
   getTipJarSettings,
   fetchTipJarSettings,
@@ -101,9 +110,13 @@ export const AdminDashboard: React.FC = () => {
     books,
     orders,
     disputes,
+    bookRequests,
     resolveDispute,
     deleteBookListing,
     updateBookStatus,
+    editSellerListing,
+    toggleUserBan,
+    pickupPoints,
     setActiveView,
     navigateToBook,
     navigateToOrder,
@@ -113,8 +126,244 @@ export const AdminDashboard: React.FC = () => {
   } = useMarketplace();
 
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'models' | 'listings' | 'orders' | 'disputes' | 'verification' | 'tipjar' | 'namaz'
+    'overview' | 'models' | 'listings' | 'users' | 'orders' | 'disputes' | 'verification' | 'tipjar' | 'namaz'
   >('overview');
+
+  // Users Management State
+  const [adminUsers, setAdminUsers] = useState<StudentUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
+  const [userSearch, setUserSearch] = useState<string>('');
+  const [userFilter, setUserFilter] = useState<'all' | 'active' | 'banned' | 'verified'>('all');
+  const [selectedUserForDetails, setSelectedUserForDetails] = useState<StudentUser | null>(null);
+  const [userToBan, setUserToBan] = useState<StudentUser | null>(null);
+  const [banReasonInput, setBanReasonInput] = useState<string>('');
+  const [isBanning, setIsBanning] = useState<boolean>(false);
+  const [userActionMessage, setUserActionMessage] = useState<string | null>(null);
+
+  // Listing Edit State (using imported EditableListing)
+  const [editingListing, setEditingListing] = useState<EditableListing | null>(null);
+  const [editFormSellingPrice, setEditFormSellingPrice] = useState<number>(0);
+  const [editFormOriginalPrice, setEditFormOriginalPrice] = useState<number>(0);
+  const [editFormCondition, setEditFormCondition] = useState<Condition>('Good');
+  const [editFormConditionDetails, setEditFormConditionDetails] = useState<string>('');
+  const [editFormAvailability, setEditFormAvailability] = useState<BookAvailability>('Available');
+  const [editFormPickupPointId, setEditFormPickupPointId] = useState<string>('');
+  const [isSavingListingEdit, setIsSavingListingEdit] = useState<boolean>(false);
+  const [listingEditMessage, setListingEditMessage] = useState<string | null>(null);
+
+  const fetchAdminUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    let fetched: StudentUser[] = [];
+
+    // 1. Try security-definer RPC admin_get_all_users
+    try {
+      const { data, error } = await supabase.rpc('admin_get_all_users');
+      if (!error && data && Array.isArray(data)) {
+        fetched = data.map((row) => mapDbProfileToStudentUser(row as Record<string, unknown>));
+      }
+    } catch {
+      // fallback
+    }
+
+    // 2. Direct select fallback
+    if (fetched.length === 0) {
+      try {
+        const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+        if (!error && data && Array.isArray(data)) {
+          fetched = data.map((row) => mapDbProfileToStudentUser(row as Record<string, unknown>));
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    // 3. Fallback and merge with known students from offers, orders, verifications
+    const localBanned = getLocalBannedUsers();
+    const map = new Map<string, StudentUser>();
+
+    fetched.forEach((u) => {
+      map.set(u.id, {
+        ...u,
+        isBanned: localBanned[u.id] ? localBanned[u.id].banned : u.isBanned,
+        banReason: localBanned[u.id]?.reason || u.banReason,
+      });
+    });
+
+    // From book offers
+    books.forEach((b) => {
+      (b.offers ?? []).forEach((o) => {
+        if (o.seller && o.seller.id && !map.has(o.seller.id)) {
+          const u = o.seller;
+          map.set(u.id, {
+            ...u,
+            isBanned: localBanned[u.id] ? localBanned[u.id].banned : u.isBanned,
+            banReason: localBanned[u.id]?.reason || u.banReason,
+          });
+        }
+      });
+    });
+
+    // From orders
+    orders.forEach((o) => {
+      [o.buyer, o.seller].forEach((u) => {
+        if (u && u.id && !map.has(u.id)) {
+          map.set(u.id, {
+            ...u,
+            isBanned: localBanned[u.id] ? localBanned[u.id].banned : u.isBanned,
+            banReason: localBanned[u.id]?.reason || u.banReason,
+          });
+        }
+      });
+    });
+
+    // From verification queue
+    verificationQueue.forEach((v) => {
+      if (v.userId && !map.has(v.userId)) {
+        map.set(v.userId, {
+          id: v.userId,
+          name: `শিক্ষার্থী (${v.studentRoll})`,
+          email: '',
+          studentId: v.studentRoll,
+          institute: 'পলিটেকনিক ইনস্টিটিউট',
+          department: 'ডিপার্টমেন্ট',
+          semester: 'সেমিস্টার',
+          avatar: `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(v.studentRoll)}&backgroundColor=ef4d23`,
+          isVerified: v.status === 'approved',
+          joinedDate: v.createdAt,
+          rating: 0,
+          totalSales: 0,
+          totalPurchases: 0,
+          rollNumber: v.studentRoll,
+          registrationNo: v.studentRegNo,
+          isBanned: localBanned[v.userId]?.banned || false,
+          banReason: localBanned[v.userId]?.reason,
+        });
+      }
+    });
+
+    setAdminUsers(Array.from(map.values()));
+    setLoadingUsers(false);
+  }, [books, orders, verificationQueue]);
+
+  useEffect(() => {
+    void fetchAdminUsers();
+  }, [fetchAdminUsers]);
+
+  const handleOpenListingEdit = (item: {
+    listingId: string;
+    id: string;
+    title: string;
+    subjectCode: string;
+    department: string;
+    seller: StudentUser;
+    sellingPrice: number;
+    originalPrice: number;
+    condition: Condition;
+    conditionDetails: string;
+    availability: BookAvailability;
+    pickupPointId: string;
+    pickupPointName: string;
+  }) => {
+    setEditingListing({
+      listingId: item.listingId,
+      bookId: item.id,
+      title: item.title,
+      subjectCode: item.subjectCode,
+      department: item.department,
+      sellerName: item.seller.name,
+      sellerRoll: item.seller.rollNumber || item.seller.studentId,
+      sellerInstitute: item.seller.institute,
+      sellingPrice: item.sellingPrice,
+      originalPrice: item.originalPrice,
+      condition: item.condition,
+      conditionDetails: item.conditionDetails || '',
+      availability: item.availability,
+      pickupPointId: item.pickupPointId || (pickupPoints[0]?.id ?? ''),
+      pickupPointName: item.pickupPointName || (pickupPoints[0]?.name ?? ''),
+    });
+    setEditFormSellingPrice(item.sellingPrice);
+    setEditFormOriginalPrice(item.originalPrice);
+    setEditFormCondition(item.condition);
+    setEditFormConditionDetails(item.conditionDetails || '');
+    setEditFormAvailability(item.availability);
+    setEditFormPickupPointId(item.pickupPointId || (pickupPoints[0]?.id ?? ''));
+    setListingEditMessage(null);
+  };
+
+  const handleSaveListingEdit = async () => {
+    if (!editingListing) return;
+    setIsSavingListingEdit(true);
+    setListingEditMessage(null);
+    try {
+      const selectedPickup = pickupPoints.find((p) => p.id === editFormPickupPointId);
+      await editSellerListing(editingListing.listingId, {
+        sellingPrice: Number(editFormSellingPrice),
+        originalPrice: Number(editFormOriginalPrice),
+        condition: editFormCondition,
+        conditionDetails: editFormConditionDetails,
+        availability: editFormAvailability,
+        pickupPointId: editFormPickupPointId,
+        pickupPointName: selectedPickup?.name || editingListing.pickupPointName,
+      });
+      setListingEditMessage('লিস্টিং সফলভাবে আপডেট করা হয়েছে!');
+      setTimeout(() => {
+        setEditingListing(null);
+        setListingEditMessage(null);
+      }, 900);
+    } catch (err) {
+      setListingEditMessage(err instanceof Error ? err.message : 'লিস্টিং আপডেট করতে সমস্যা হয়েছে।');
+    } finally {
+      setIsSavingListingEdit(false);
+    }
+  };
+
+  const handleConfirmBan = async () => {
+    if (!userToBan) return;
+    setIsBanning(true);
+    const reason = banReasonInput.trim() || 'অ্যাডমিন কর্তৃক অ্যাকাউন্ট স্থগিত করা হয়েছে';
+    try {
+      await toggleUserBan(userToBan.id, true, reason);
+      setAdminUsers((prev) =>
+        prev.map((u) =>
+          u.id === userToBan.id
+            ? { ...u, isBanned: true, banReason: reason, bannedAt: new Date().toISOString() }
+            : u
+        )
+      );
+      if (selectedUserForDetails?.id === userToBan.id) {
+        setSelectedUserForDetails((prev) =>
+          prev ? { ...prev, isBanned: true, banReason: reason, bannedAt: new Date().toISOString() } : null
+        );
+      }
+      setUserActionMessage(`ব্যবহারকারী "${userToBan.name}" কে সফলভাবে ব্যান করা হয়েছে।`);
+      setUserToBan(null);
+      setBanReasonInput('');
+    } catch (err) {
+      setUserActionMessage(err instanceof Error ? err.message : 'ব্যান করতে সমস্যা হয়েছে।');
+    } finally {
+      setIsBanning(false);
+    }
+  };
+
+  const handleConfirmUnban = async (user: StudentUser) => {
+    if (!window.confirm(`আপনি কি "${user.name}" এর অ্যাকাউন্টের ব্যান প্রত্যাহার (Unban) করতে চান?`)) return;
+    try {
+      await toggleUserBan(user.id, false);
+      setAdminUsers((prev) =>
+        prev.map((u) =>
+          u.id === user.id ? { ...u, isBanned: false, banReason: undefined, bannedAt: undefined } : u
+        )
+      );
+      if (selectedUserForDetails?.id === user.id) {
+        setSelectedUserForDetails((prev) =>
+          prev ? { ...prev, isBanned: false, banReason: undefined, bannedAt: undefined } : null
+        );
+      }
+      setUserActionMessage(`ব্যবহারকারী "${user.name}" এর ব্যান প্রত্যাহার করা হয়েছে।`);
+    } catch (err) {
+      setUserActionMessage(err instanceof Error ? err.message : 'আনব্যান করতে সমস্যা হয়েছে।');
+    }
+  };
 
   const [namazEnabled, setNamazEnabled] = useState<boolean>(isReminderEnabled);
   const prayerSchedule = getDayPrayerSchedule();
@@ -367,6 +616,25 @@ export const AdminDashboard: React.FC = () => {
       .some((value) => value.toLowerCase().includes(query));
   });
 
+  const filteredUsers = adminUsers.filter((u) => {
+    const q = userSearch.trim().toLowerCase();
+    const matchSearch =
+      !q ||
+      u.name.toLowerCase().includes(q) ||
+      (u.rollNumber || '').toLowerCase().includes(q) ||
+      (u.studentId || '').toLowerCase().includes(q) ||
+      (u.phone || '').includes(q) ||
+      (u.department || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.institute || '').toLowerCase().includes(q);
+
+    if (!matchSearch) return false;
+    if (userFilter === 'active') return !u.isBanned;
+    if (userFilter === 'banned') return Boolean(u.isBanned);
+    if (userFilter === 'verified') return Boolean(u.isVerified);
+    return true;
+  });
+
   return (
     <div className="bg-[#0b0f1a] -mx-3 sm:-mx-4 -mt-3 sm:-mt-6 p-4 sm:p-6 lg:p-8 min-h-screen text-slate-100 rounded-3xl space-y-6">
       {/* Top Operations Header */}
@@ -423,6 +691,25 @@ export const AdminDashboard: React.FC = () => {
           }`}
         >
           লিস্টিং মডারেশন ({totalListings})
+        </button>
+        <button
+          onClick={() => {
+            setActiveAdminTab('users');
+            void fetchAdminUsers();
+          }}
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+            activeAdminTab === 'users'
+              ? 'bg-[#ef4d23] text-white'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>ব্যবহারকারী তালিকা ({adminUsers.length})</span>
+          {adminUsers.filter((u) => u.isBanned).length > 0 && (
+            <span className="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] flex items-center justify-center font-bold">
+              {adminUsers.filter((u) => u.isBanned).length}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setActiveAdminTab('orders')}
@@ -753,7 +1040,20 @@ export const AdminDashboard: React.FC = () => {
                     <td className="py-3 px-2 text-slate-400">{b.department}</td>
                     <td className="py-3 px-2">{b.condition}</td>
                     <td className="py-3 px-2 font-bold">৳{b.sellingPrice}</td>
-                    <td className="py-3 px-2 text-slate-300">{b.seller.name}</td>
+                    <td className="py-3 px-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const foundUser = adminUsers.find((u) => u.id === b.seller.id);
+                          setSelectedUserForDetails(foundUser || b.seller);
+                        }}
+                        className="text-cyan-400 hover:text-cyan-300 hover:underline font-medium text-left flex items-center gap-1 cursor-pointer transition-colors"
+                        title="????????? ???????? ? ????????? ?????"
+                      >
+                        <span>{b.seller.name}</span>
+                        <ExternalLink className="w-3 h-3 opacity-70" />
+                      </button>
+                    </td>
                     <td className="py-3 px-2">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
@@ -766,6 +1066,14 @@ export const AdminDashboard: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-2 text-right space-x-2">
+                      <button
+                        onClick={() => handleOpenListingEdit(b)}
+                        className="text-cyan-400 hover:text-cyan-300 font-semibold inline-flex items-center gap-1 cursor-pointer"
+                        title="লিস্টিংয়ের তথ্য ও মূল্য সম্পাদনা করুন"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        <span>সম্পাদনা</span>
+                      </button>
                       <button
                         onClick={() => navigateToBook(b.id)}
                         className="text-slate-400 hover:text-white underline cursor-pointer"
@@ -805,6 +1113,274 @@ export const AdminDashboard: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: USERS MANAGEMENT */}
+      {activeAdminTab === 'users' && (
+        <div className="space-y-6">
+          {userActionMessage && (
+            <div className="p-4 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-between text-xs text-white">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>{userActionMessage}</span>
+              </div>
+              <button
+                onClick={() => setUserActionMessage(null)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Metric Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">মোট শিক্ষার্থী</span>
+                <Users className="w-4 h-4 text-indigo-400" />
+              </div>
+              <p className="text-2xl font-bold text-white mt-1">{adminUsers.length}</p>
+              <span className="text-[11px] text-slate-500">নিবন্ধিত ও সক্রিয় আইডি</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">সক্রিয় অ্যাকাউন্ট</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              </div>
+              <p className="text-2xl font-bold text-emerald-400 mt-1">
+                {adminUsers.filter((u) => !u.isBanned).length}
+              </p>
+              <span className="text-[11px] text-slate-500">ব্যানমুক্ত শিক্ষার্থী</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">স্থগিত / ব্যানড</span>
+                <Ban className="w-4 h-4 text-rose-500" />
+              </div>
+              <p className="text-2xl font-bold text-rose-400 mt-1">
+                {adminUsers.filter((u) => u.isBanned).length}
+              </p>
+              <span className="text-[11px] text-slate-500">মার্কেটপ্লেস থেকে স্থগিত</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">ভেরিফাইড শিক্ষার্থী</span>
+                <BadgeCheck className="w-4 h-4 text-amber-400" />
+              </div>
+              <p className="text-2xl font-bold text-amber-400 mt-1">
+                {adminUsers.filter((u) => u.isVerified).length}
+              </p>
+              <span className="text-[11px] text-slate-500">আইডি কার্ড যাচাইকৃত</span>
+            </div>
+          </div>
+
+          {/* User List Table Card */}
+          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-bold text-base text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-[#ef4d23]" />
+                  <span>নিবন্ধিত শিক্ষার্থী ও অ্যাকাউন্ট নিয়ন্ত্রণ</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  শিক্ষার্থীদের সকল তথ্য পর্যবেক্ষণ, প্রোফাইল যাচাই এবং প্রয়োজন অনুযায়ী ব্যান/আনব্যান করুন
+                </p>
+              </div>
+
+              {/* Search & Refresh */}
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    placeholder="নাম, রোল, ফোন বা ডিপার্টমেন্ট..."
+                    className="bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#ef4d23] w-56 sm:w-64"
+                  />
+                </div>
+                <button
+                  onClick={() => void fetchAdminUsers()}
+                  disabled={loadingUsers}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+                  title="রিফ্রেশ করুন"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${loadingUsers ? 'animate-spin text-[#ef4d23]' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
+              {[
+                { id: 'all', label: `সকল (${adminUsers.length})` },
+                { id: 'active', label: `সক্রিয় (${adminUsers.filter((u) => !u.isBanned).length})` },
+                { id: 'banned', label: `ব্যানড (${adminUsers.filter((u) => u.isBanned).length})` },
+                { id: 'verified', label: `ভেরিফাইড (${adminUsers.filter((u) => u.isVerified).length})` },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setUserFilter(f.id as any)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                    userFilter === f.id
+                      ? 'bg-[#ef4d23] text-white'
+                      : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px] font-mono">
+                    <th className="py-3 px-3">শিক্ষার্থী</th>
+                    <th className="py-3 px-3">ডিপার্টমেন্ট ও সেমিস্টার</th>
+                    <th className="py-3 px-3">যোগাযোগ</th>
+                    <th className="py-3 px-3">পরিসংখ্যান ও লিস্টিং</th>
+                    <th className="py-3 px-3">স্ট্যাটাস</th>
+                    <th className="py-3 px-3 text-right">অ্যাকশন</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 text-slate-200">
+                  {loadingUsers ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#ef4d23] mb-2" />
+                        ব্যবহারকারীদের তথ্য লোড হচ্ছে...
+                      </td>
+                    </tr>
+                  ) : filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-500">
+                        কোনো শিক্ষার্থী পাওয়া যায়নি।
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((u) => {
+                      const userListingCount = books.flatMap((b) => (b.offers ?? [])).filter((o) => o.seller.id === u.id).length;
+                      return (
+                        <tr key={u.id} className="hover:bg-slate-800/40">
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2.5">
+                              <img
+                                src={u.avatar}
+                                alt={u.name}
+                                className="w-9 h-9 rounded-full border border-slate-700 object-cover shrink-0"
+                              />
+                              <div>
+                                <div className="font-semibold text-white flex items-center gap-1.5">
+                                  <span>{u.name}</span>
+                                  {u.isVerified && (
+                                    <BadgeCheck className="w-4 h-4 text-amber-400 shrink-0" title="ভেরিফাইড শিক্ষার্থী" />
+                                  )}
+                                  {u.isAdmin && (
+                                    <span className="text-[9px] px-1 rounded bg-[#ef4d23]/20 text-[#ef4d23] border border-[#ef4d23]/30 font-mono">
+                                      অ্যাডমিন
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] font-mono text-slate-400">
+                                  রোল: {u.rollNumber || u.studentId || 'তথ্য নেই'} {u.registrationNo ? `• রেজি: ${u.registrationNo}` : ''}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="text-slate-300 font-medium">{u.department || 'তথ্য নেই'}</div>
+                            <div className="text-slate-400 text-[11px]">
+                              {u.semester || ''} {u.session ? `(${u.session})` : ''}
+                            </div>
+                            <div className="text-[10px] text-slate-500 truncate max-w-[160px]">{u.institute}</div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="text-slate-300 font-mono text-[11px] flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-slate-500" />
+                              <span>{u.phone || 'ফোন নেই'}</span>
+                            </div>
+                            {u.email && <div className="text-[11px] text-slate-400 truncate max-w-[140px] mt-0.5">{u.email}</div>}
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2 text-[11px]">
+                              <span className="text-slate-300">লিস্টিং: <strong className="text-white font-mono">{userListingCount}</strong></span>
+                              <span className="text-slate-500">•</span>
+                              <span className="text-slate-300">সেলস: <strong className="text-emerald-400 font-mono">{u.totalSales}</strong></span>
+                            </div>
+                            <div className="text-[11px] text-amber-400 flex items-center gap-1 mt-0.5">
+                              <span>★ {u.rating ? u.rating.toFixed(1) : '5.0'}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3">
+                            {u.isBanned ? (
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-950 border border-rose-800 text-rose-300">
+                                  <Ban className="w-3 h-3" />
+                                  স্থগিত (Banned)
+                                </span>
+                                {u.banReason && (
+                                  <p className="text-[10px] text-rose-400/80 truncate max-w-[150px]" title={u.banReason}>
+                                    {u.banReason}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/80 border border-emerald-800 text-emerald-300">
+                                <CheckCircle2 className="w-3 h-3" />
+                                সক্রিয়
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                onClick={() => setSelectedUserForDetails(u)}
+                                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                                title="ব্যবহারকারীর বিস্তারিত তথ্য দেখুন"
+                              >
+                                <Info className="w-3.5 h-3.5" />
+                                <span>তথ্য</span>
+                              </button>
+                              {u.isBanned ? (
+                                <button
+                                  onClick={() => void handleConfirmUnban(u)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                                  title="ব্যান প্রত্যাহার করুন"
+                                >
+                                  <UserCheck className="w-3.5 h-3.5" />
+                                  <span>আনব্যান</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setUserToBan(u);
+                                    setBanReasonInput('');
+                                  }}
+                                  disabled={u.isAdmin}
+                                  className="px-2.5 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                  title={u.isAdmin ? 'অ্যাডমিন অ্যাকাউন্ট ব্যান করা যাবে না' : 'অ্যাকাউন্ট ব্যান করুন'}
+                                >
+                                  <Ban className="w-3.5 h-3.5" />
+                                  <span>ব্যান</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -2019,6 +2595,66 @@ create policy "tip_jar_settings_all" on public.tip_jar_settings for all to anon,
           </div>
         </div>
       )}
+{/* User Moderation & Activity Management Modals */}
+      <AdminUserManagementModals
+        selectedUserForDetails={selectedUserForDetails}
+        onCloseUserDetails={() => setSelectedUserForDetails(null)}
+        userToBan={userToBan}
+        banReasonInput={banReasonInput}
+        setBanReasonInput={setBanReasonInput}
+        onCloseBanModal={() => {
+          setUserToBan(null);
+          setBanReasonInput('');
+        }}
+        onConfirmBan={handleConfirmBan}
+        isBanning={isBanning}
+        onConfirmUnban={handleConfirmUnban}
+        onInitiateBan={(u) => {
+          setUserToBan(u);
+          setBanReasonInput('');
+        }}
+        editingListing={editingListing}
+        onCloseListingEdit={() => setEditingListing(null)}
+        editFormSellingPrice={editFormSellingPrice}
+        setEditFormSellingPrice={setEditFormSellingPrice}
+        editFormOriginalPrice={editFormOriginalPrice}
+        setEditFormOriginalPrice={setEditFormOriginalPrice}
+        editFormCondition={editFormCondition}
+        setEditFormCondition={setEditFormCondition}
+        editFormConditionDetails={editFormConditionDetails}
+        setEditFormConditionDetails={setEditFormConditionDetails}
+        editFormAvailability={editFormAvailability}
+        setEditFormAvailability={setEditFormAvailability}
+        editFormPickupPointId={editFormPickupPointId}
+        setEditFormPickupPointId={setEditFormPickupPointId}
+        onSaveListingEdit={handleSaveListingEdit}
+        isSavingListingEdit={isSavingListingEdit}
+        listingEditMessage={listingEditMessage}
+        pickupPoints={pickupPoints}
+        books={books}
+        orders={orders}
+        bookRequests={bookRequests}
+        onOpenListingEdit={handleOpenListingEdit}
+        onToggleListingStatus={async (listingId, status) => {
+          try {
+            await updateBookStatus(listingId, status);
+            await refreshBooks();
+          } catch (e) {
+            console.error('Failed to toggle status:', e);
+          }
+        }}
+        onDeleteListing={async (listingId) => {
+          if (!window.confirm('???? ?? ??????? ?? ?? ????????? ???? ????? ????')) return;
+          try {
+            await deleteBookListing(listingId);
+            await refreshBooks();
+          } catch (e) {
+            console.error('Failed to delete listing:', e);
+          }
+        }}
+        onNavigateToBook={navigateToBook}
+        onNavigateToOrder={navigateToOrder}
+      />
     </div>
   );
 };

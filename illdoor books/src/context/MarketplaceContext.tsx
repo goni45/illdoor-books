@@ -60,7 +60,16 @@ export { DEPARTMENTS, SEMESTERS, CONDITIONS };
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-function mapDbProfileToStudentUser(prof: Record<string, unknown> | null, fallbackId: string = ''): StudentUser {
+export function getLocalBannedUsers(): Record<string, { banned: boolean; reason?: string }> {
+  try {
+    const raw = localStorage.getItem('admin_banned_users');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function mapDbProfileToStudentUser(prof: Record<string, unknown> | null, fallbackId: string = ''): StudentUser {
   if (!prof) {
     return {
       id: fallbackId, name: 'Student', email: '', studentId: '',
@@ -68,8 +77,13 @@ function mapDbProfileToStudentUser(prof: Record<string, unknown> | null, fallbac
       joinedDate: '', rating: 0, totalSales: 0, totalPurchases: 0,
     };
   }
+  const id = (prof.id as string) || fallbackId;
+  const localBan = getLocalBannedUsers()[id];
+  const isBanned = localBan ? localBan.banned : Boolean(prof.is_banned);
+  const banReason = (prof.ban_reason as string) || localBan?.reason || undefined;
+
   return {
-    id: (prof.id as string) || fallbackId,
+    id,
     name: (prof.full_name as string) || 'Student',
     email: (prof.email as string) || '',
     studentId: (prof.student_roll as string) || '',
@@ -83,12 +97,17 @@ function mapDbProfileToStudentUser(prof: Record<string, unknown> | null, fallbac
     rating: parseFloat((prof.rating as number)?.toString() || '0') || 0,
     totalSales: (prof.total_sales as number) || 0,
     totalPurchases: (prof.total_purchases as number) || 0,
-    phone: prof.phone as string | undefined,
+    phone: (prof.contact_phone as string) || (prof.phone as string | undefined),
     rollNumber: prof.student_roll as string | undefined,
+    session: (prof.session as string) || undefined,
     isAdmin: Boolean(prof.is_admin),
     registrationNo: prof.student_reg_no as string | undefined,
+    isBanned,
+    bannedAt: (prof.banned_at as string) || undefined,
+    banReason,
   };
 }
+
 
 function mapDbBookToListing(row: Record<string, unknown>): BookListing {
   const rawOffers = (row.seller_listings ?? []) as Array<Record<string, unknown>>;
@@ -351,6 +370,16 @@ interface MarketplaceContextType {
   addBookListing: (newBook: Omit<BookListing, 'id' | 'seller' | 'createdAt' | 'viewsCount' | 'savings'>, imageFiles?: File[]) => Promise<string>;
   updateBookStatus: (bookId: string, availability: BookListing['availability']) => Promise<void>;
   deleteBookListing: (bookId: string) => Promise<void>;
+  editSellerListing: (listingId: string, updates: {
+    sellingPrice?: number;
+    originalPrice?: number;
+    condition?: Condition;
+    conditionDetails?: string;
+    availability?: BookListing['availability'];
+    pickupPointId?: string;
+    pickupPointName?: string;
+  }) => Promise<void>;
+  toggleUserBan: (userId: string, isBanned: boolean, banReason?: string) => Promise<void>;
   createOrder: (bookId: string, pickupPointId: string) => Promise<{ orderId: string; error: string | null }>;
   verifyPickupPin: (orderId: string, pin: string) => Promise<{ success: boolean; message: string }>;
   markNotificationAsRead: (id: string) => Promise<void>;
@@ -1025,6 +1054,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // ── Book actions ─────────────────────────────────────────────────────────
   const addBookListing = useCallback(async (newBookData: Omit<BookListing,'id'|'seller'|'createdAt'|'viewsCount'|'savings'>):Promise<string>=>{
     if(!user) return '';
+    if (currentUser.isBanned) {
+      throw new Error(`আপনার অ্যাকাউন্টটি অ্যাডমিন কর্তৃক সাময়িকভাবে স্থগিত করা হয়েছে। কারণ: ${currentUser.banReason || 'অ্যাডমিনের সাথে যোগাযোগ করুন'}`);
+    }
     const modelId=(newBookData as any).bookModelId as string;
     if(!modelId) throw new Error('Select an existing book model first.');
     const pickup=pickupPoints.find(p=>p.id===newBookData.pickupPointId)??pickupPoints[0];
@@ -1032,16 +1064,177 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if(error) throw new Error(error.message);
     await addNotification({title:'Listing published',message:`Your offer for ${newBookData.title} is live.`,type:'system',linkRoute:'book-details',linkId:modelId});
     await refreshBooks(); return modelId;
-  },[user,pickupPoints,addNotification,refreshBooks]);
+  },[user,currentUser,pickupPoints,addNotification,refreshBooks]);
 
   const updateBookStatus=useCallback(async(listingId:string,availability:BookListing['availability'])=>{
     const {error}=await supabase.rpc('set_my_marketplace_listing_status',{p_listing_id:listingId,p_status:availability}); if(error) throw new Error(error.message); await refreshBooks();
   },[refreshBooks]);
-  const deleteBookListing=useCallback(async(listingId:string)=>{const {error}=await supabase.from('seller_listings').delete().eq('id',listingId);if(error)throw new Error(error.message);await refreshBooks();},[refreshBooks]);
+
+  const deleteBookListing=useCallback(async(listingId:string)=>{
+    let dbDeleted = false;
+    try {
+      const { error: rpcError } = await supabase.rpc('admin_delete_seller_listing', { p_listing_id: listingId });
+      if (!rpcArror) dbDeleted = true;
+    } catch {
+      // fallback
+    }
+    if (!dbDeleted) {
+      const { error } = await supabase.from('seller_listings').delete().eq('id', listingId);
+      if (error) console.warn('DB delete seller_listing failed:', error.message);
+    }
+    setBooks((prevBooks) =>
+    prevBooks.map((book) => ({
+      ...book,
+      offers: (book.offers ?? []).filter((o) => o.id !== listingId),
+    }))
+    );
+    await refreshBooks();
+  },[refreshBooks]);
+
+  const editSellerListing = useCallback(async (listingId: string, updates: {
+    sellingPrice?: number;
+    originalPrice?: number;
+    condition?: Condition;
+    conditionDetails?: string;
+    availability?: BookListing['availability'];
+    pickupPointId?: string;
+    pickupPointName?: string;
+  }) => {
+    let dbUpdated = false;
+    try {
+      const { error: rpcError } = await supabase.rpc('admin_update_seller_listing', {
+        p_listing_id: listingId,
+        p_selling_price: updates.sellingPrice,
+        p_original_price: updates.originalPrice,
+        p_condition: updates.condition,
+        p_condition_details: updates.conditionDetails,
+        p_availability: updates.availability,
+        p_pickup_point_id: updates.pickupPointId,
+        p_pickup_point_name: updates.pickupPointName,
+      });
+      if (!rpcError) dbUpdated = true;
+    } catch {
+      // fallback
+    }
+
+    if (!dbUpdated) {
+      const payload: Record<string, unknown> = {};
+      if (updates.sellingPrice !== undefined) payload.selling_price = updates.sellingPrice;
+      if (updates.originalPrice !== undefined) payload.original_price = updates.originalPrice;
+      if (updates.condition !== undefined) payload.condition = updates.condition;
+      if (updates.conditionDetails !== undefined) payload.condition_details = updates.conditionDetails;
+      if (updates.availability !== undefined) payload.availability = updates.availability;
+      if (updates.pickupPointId !== undefined) {
+        payload.pickup_point_id = updates.pickupPointId;
+        if (updates.pickupPointName) payload.pickup_point_name = updates.pickupPointName;
+      }
+      const { error } = await supabase.from('seller_listings').update(payload).eq('id', listingId);
+      if (error) {
+        console.warn('DB update seller_listing failed:', error.message);
+      }
+    }
+
+    // Optimistic local update
+    setBooks((prevBooks) =>
+      prevBooks.map((book) => {
+        const hasOffer = (book.offers ?? []).some((o) => o.id === listingId);
+        if (!hasOffer) return book;
+        const updatedOffers = (book.offers ?? []).map((offer) => {
+          if (offer.id !== listingId) return offer;
+          const orig = updates.originalPrice ?? offer.originalPrice;
+          const sell = updates.sellingPrice ?? offer.sellingPrice;
+          const savings = orig > sell ? Math.round(((orig - sell) / orig) * 100) : 0;
+          return {
+            ...offer,
+            sellingPrice: sell,
+            originalPrice: orig,
+            savings,
+            condition: updates.condition ?? offer.condition,
+            conditionDetails: updates.conditionDetails ?? offer.conditionDetails,
+            availability: updates.availability ?? offer.availability,
+            pickupPointId: updates.pickupPointId ?? offer.pickupPointId,
+            pickupPointName: updates.pickupPointName ?? offer.pickupPointName,
+          };
+        });
+        return {
+          ...book,
+          offers: updatedOffers,
+        };
+      })
+    );
+
+    await refreshBooks();
+  }, [refreshBooks]);
+
+  const toggleUserBan = useCallback(async (userId: string, isBanned: boolean, banReason?: string) => {
+    let dbSuccess = false;
+    try {
+      const { error } = await supabase.rpc('admin_toggle_user_ban', {
+        p_user_id: userId,
+        p_is_banned: isBanned,
+        p_ban_reason: banReason ?? null,
+      });
+      if (!error) dbSuccess = true;
+    } catch {
+      // fallback
+    }
+
+    if (!dbSuccess) {
+      try {
+        await supabase.from('profiles').update({
+          is_banned: isBanned,
+          banned_at: isBanned ? new Date().toISOString() : null,
+          ban_reason: isBanned ? (banReason || 'অ্যাডমিন কর্তৃক অ্যাকাউন্ট স্থগিত করা হয়েছে') : null,
+        }).eq('id', userId);
+      } catch (err) {
+        console.warn('DB ban update failed:', err);
+      }
+    }
+
+    // Persist in localStorage fallback
+    try {
+      const currentBanned = getLocalBannedUsers();
+      currentBanned[userId] = { banned: isBanned, reason: banReason };
+      localStorage.setItem('admin_banned_users', JSON.stringify(currentBanned));
+    } catch {
+      // ignore
+    }
+
+    if (user?.id === userId) {
+      setCurrentUser((prev) => ({
+        ...prev,
+        isBanned,
+        bannedAt: isBanned ? new Date().toISOString() : undefined,
+        banReason: isBanned ? banReason : undefined,
+      }));
+    }
+
+    setBooks((prevBooks) =>
+      prevBooks.map((book) => ({
+        ...book,
+        offers: (book.offers ?? []).map((offer) =>
+          offer.seller.id === userId
+            ? {
+                ...offer,
+                seller: {
+                  ...offer.seller,
+                  isBanned,
+                  banReason: isBanned ? banReason : undefined,
+                },
+              }
+            : offer
+        ),
+      }))
+    );
+  }, [user]);
+
 
   // ── Order actions ────────────────────────────────────────────────────────
   const createOrder = useCallback(async (bookId: string, pickupPointId: string): Promise<{ orderId: string; error: string | null }> => {
     if (!user) return { orderId: '', error: 'Please log in first.' };
+    if (currentUser.isBanned) {
+      return { orderId: '', error: `আপনার অ্যাকাউন্টটি অ্যাডমিন কর্তৃক সাময়িকভাবে স্থগিত করা হয়েছে। কারণ: ${currentUser.banReason || 'অ্যাডমিনের সাথে যোগাযোগ করুন'}` };
+    }
 
     // 1. Try atomic place_order RPC in Supabase
     try {
@@ -1331,6 +1524,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       openAuthModal('login', 'বইয়ের অনুরোধ করতে দয়া করে লগইন করুন (Please log in to request books)');
       return { success: false, message: 'Not authenticated' };
     }
+    if (currentUser.isBanned) {
+      return { success: false, message: `আপনার অ্যাকাউন্টটি অ্যাডমিন কর্তৃক সাময়িকভাবে স্থগিত করা হয়েছে। কারণ: ${currentUser.banReason || 'অ্যাডমিনের সাথে যোগাযোগ করুন'}` };
+    }
 
     const payloadWithExtra: Record<string, unknown> = {
       requester_id: user.id,
@@ -1581,6 +1777,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     refreshBooks, refreshOrders, refreshNotifications, refreshReviews, refreshVerification,
     toggleWishlist, isWishlisted,
     addBookListing, updateBookStatus, deleteBookListing,
+    editSellerListing, toggleUserBan,
     createOrder, verifyPickupPin, cancelOrder,
     submitReview, hasReviewedOrder,
     submitVerificationRequest, decideVerification,
@@ -1603,6 +1800,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     reviews, reviewsGiven, verificationRequest, verificationQueue,
     dataLoading, refreshBooks, refreshOrders, refreshNotifications, refreshReviews, refreshVerification,
     toggleWishlist, isWishlisted, addBookListing, updateBookStatus, deleteBookListing,
+    editSellerListing, toggleUserBan,
     createOrder, verifyPickupPin, cancelOrder, submitReview, hasReviewedOrder,
     submitVerificationRequest, decideVerification, markNotificationAsRead, markAllNotificationsAsRead,
     fileDispute, resolveDispute, filters, searchQuery, applyQuickSubjectSearch,

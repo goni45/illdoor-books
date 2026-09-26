@@ -47,6 +47,9 @@ export interface StudentUser {
   isAdmin?: boolean;
   registrationNo?: string;
   verificationStatus?: VerificationStatus;
+  isBanned?: boolean;
+  bannedAt?: string;
+  banReason?: string;
 }
 
 export interface SellerListing {

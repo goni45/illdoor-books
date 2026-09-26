@@ -48,6 +48,9 @@ function mapProfileToUser(profile: Record<string, unknown>, email: string): Stud
     session: (profile.session as string) || undefined,
     isAdmin: Boolean(profile.is_admin),
     registrationNo: (profile.student_reg_no as string) || undefined,
+    isBanned: Boolean(profile.is_banned),
+    bannedAt: (profile.banned_at as string) || undefined,
+    banReason: (profile.ban_reason as string) || undefined,
   };
 }
 
