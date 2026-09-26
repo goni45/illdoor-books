@@ -378,16 +378,16 @@ export const AdminUserManagementModals: React.FC<AdminUserManagementModalsProps>
               bookTitle: b.title,
               subjectCode: b.subjectCode,
               department: b.department,
-              commonImageUrl: b.coverImage,
+              commonImageUrl: b.images?.[0] || b.commonCoverImageUrl || '',
             }))
         );
 
         const userOrders = orders.filter(
-          (o) => o.buyerId === u.id || o.sellerId === u.id
+          (o) => o.buyer?.id === u.id || o.seller?.id === u.id
         );
 
         const userRequests = bookRequests.filter(
-          (r) => r.requester.id === u.id
+          (r) => r.requesterId === u.id
         );
 
         return (
@@ -586,7 +586,7 @@ export const AdminUserManagementModals: React.FC<AdminUserManagementModalsProps>
                                   </div>
                                 </td>
                                 <td className="py-2.5 px-3 font-mono font-bold text-emerald-400">
-                                  ৳{offer.price}
+                                  ৳{offer.sellingPrice}
                                   <span className="text-[10px] text-slate-500 line-through ml-1.5 font-normal">
                                     ৳{offer.originalPrice}
                                   </span>
@@ -610,7 +610,7 @@ export const AdminUserManagementModals: React.FC<AdminUserManagementModalsProps>
                                   </span>
                                 </td>
                                 <td className="py-2.5 px-3 text-slate-400 text-[11px] truncate max-w-[140px]">
-                                  {offer.pickupPoint?.name || 'ক্যামপাঈ ডেস্ক'}
+                                  {offer.pickupPointName || 'ক্যামপাঈ ডেস্ক'}
                                 </td>
                                 <td className="py-2.5 px-3 text-right">
                                   <div className="inline-flex items-center gap-1.5">
@@ -626,13 +626,13 @@ export const AdminUserManagementModals: React.FC<AdminUserManagementModalsProps>
                                           sellerName: u.name,
                                           sellerRoll: u.rollNumber || u.studentId,
                                           sellerInstitute: u.institute,
-                                          sellingPrice: offer.price,
+                                          sellingPrice: offer.sellingPrice,
                                           originalPrice: offer.originalPrice,
                                           condition: offer.condition,
                                           conditionDetails: offer.conditionDetails || '',
                                           availability: offer.availability,
-                                          pickupPointId: offer.pickupPoint?.id || '',
-                                          pickupPointName: offer.pickupPoint?.name || '',
+                                          pickupPointId: offer.pickupPointId || '',
+                                          pickupPointName: offer.pickupPointName || '',
                                         })
                                       }
                                       className="p-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900 border border-cyan-800/80 text-cyan-300 transition-colors cursor-pointer"
@@ -696,7 +696,7 @@ export const AdminUserManagementModals: React.FC<AdminUserManagementModalsProps>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {userOrders.map((ord) => {
-                          const isBuyer = ord.buyerId === u.id;
+                          const isBuyer = ord.buyer?.id === u.id;
                           return (
                             <div
                               key={ord.id}
@@ -719,16 +719,16 @@ export const AdminUserManagementModals: React.FC<AdminUserManagementModalsProps>
                                     </span>
                                   </div>
                                   <h5 className="font-bold text-white text-xs mt-1 truncate max-w-[220px]">
-                                    {ord.bookTitle}
+                                    {ord.book?.title || '\u09ac\u0987'}
                                   </h5>
                                 </div>
                                 <span className="text-xs font-mono font-bold text-emerald-400">
-                                  ৳{ord.amount}
+                                  ৳{ord.price}
                                 </span>
                               </div>
 
                               <div className="text-[11px] text-slate-400 space-y-0.5 font-mono">
-                                <div>পিকআপ: {ord.pickupPointName}</div>
+                                <div>পিকআপ: {ord.pickupPoint?.name || '\u0995\u09cd\u09af\u09be\u09ae\u09aa\u09be\u09b8 \u09a1\u09c7\u09b8\u09cdক'}</div>
                                 <div>তারিখ: {new Date(ord.createdAt).toLocaleDateString('bn-BD')}</div>
                               </div>
 
@@ -774,7 +774,7 @@ export const AdminUserManagementModals: React.FC<AdminUserManagementModalsProps>
                             <div>
                               <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950/60 border border-amber-800 text-amber-300">
-                                  {req.urgency}
+                                  {req.requestType || 'General'}
                                 </span>
                                 {req.maxBudget && (
                                   <span className="text-xs font-mono font-bold text-emerald-400">
@@ -783,7 +783,7 @@ export const AdminUserManagementModals: React.FC<AdminUserManagementModalsProps>
                                 )}
                               </div>
                               <h5 className="font-bold text-white text-xs mt-1.5">
-                                {req.bookTitle}
+                                {req.title}
                               </h5>
                               <div className="text-[11px] text-slate-400 mt-0.5">
                                 {req.department} • {req.semester}

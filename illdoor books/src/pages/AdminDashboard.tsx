@@ -1281,7 +1281,7 @@ export const AdminDashboard: React.FC = () => {
                                 <div className="font-semibold text-white flex items-center gap-1.5">
                                   <span>{u.name}</span>
                                   {u.isVerified && (
-                                    <BadgeCheck className="w-4 h-4 text-amber-400 shrink-0" title="ভেরিফাইড শিক্ষার্থী" />
+                                    <span title="\u09ad\u09c7\u09b0\u09bf\u09ab\u09be\u0987\u09a1 \u09b6\u09bf\u0995\u09cd\u09b7\u09be\u09b0\u09cd\u09a5\u09c0" className="inline-flex"><BadgeCheck className="w-4 h-4 text-amber-400 shrink-0" /></span>
                                   )}
                                   {u.isAdmin && (
                                     <span className="text-[9px] px-1 rounded bg-[#ef4d23]/20 text-[#ef4d23] border border-[#ef4d23]/30 font-mono">

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ActiveView,
   BookListing,
+  Condition,
   BookRequest,
   DisputeReport,
   FilterState,
@@ -1074,7 +1075,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     let dbDeleted = false;
     try {
       const { error: rpcError } = await supabase.rpc('admin_delete_seller_listing', { p_listing_id: listingId });
-      if (!rpcArror) dbDeleted = true;
+      if (!rpcError) dbDeleted = true;
     } catch {
       // fallback
     }
