@@ -65,14 +65,30 @@ export function useAuth() {
 
   /** Fetch profile from DB and update state */
   const fetchProfile = useCallback(async (userId: string, email: string) => {
+    let rowData: Record<string, unknown> = {};
     const { data, error } = await supabase.rpc('get_my_profile');
 
-    if (error || !data) {
+    if (!error && data) {
+      rowData = data as Record<string, unknown>;
+    } else {
       console.warn('Profile fetch failed:', error?.message);
-      return null;
     }
 
-    return mapProfileToUser(data as Record<string, unknown>, email);
+    try {
+      const { data: directProf } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, is_verified, is_admin, rating, total_sales, total_purchases, institute, department, semester, created_at, is_banned, banned_at, ban_reason')
+        .eq('id', userId)
+        .maybeSingle();
+      if (directProf) {
+        rowData = { ...rowData, ...directProf };
+      }
+    } catch {
+      // non-blocking
+    }
+
+    if (Object.keys(rowData).length === 0) return null;
+    return mapProfileToUser(rowData, email);
   }, []);
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BookOpen, CheckCircle2, Home, Layers3, MapPin, Search, ShoppingBag } from 'lucide-react';
+import { BookOpen, CheckCircle2, Home, Layers3, MapPin, Search, ShoppingBag, Ban } from 'lucide-react';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { useSemesterBundles, type BundleDraft } from '../hooks/useSemesterBundles';
 import type { BookListing, Condition, PickupType, Publication } from '../types';
@@ -143,6 +143,9 @@ export const SellBookPage: React.FC = () => {
 
   const submitSingle = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (currentUser.isBanned) {
+      return setError(`????? ???????????? ?????? ??? ?????? ????: ${currentUser.banReason || '?????????? ???? ??????? ????'}`);
+    }
     if (!selected) return setError('অনুগ্রহ করে প্রথমে একটি বিটিইবি বিষয় নির্বাচন করুন।');
     if (sellingPrice <= 0 || originalPrice <= 0 || sellingPrice > originalPrice) return setError('বিক্রয় মূল্য অবশ্যই ধনাত্মক হতে হবে এবং মূল মূল্যের চেয়ে বেশি হতে পারবে না।');
     const isSellerPlace = pickupType === 'seller_place' || pickupId === 'seller_place';
@@ -175,6 +178,9 @@ export const SellBookPage: React.FC = () => {
 
   const submitBundles = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (currentUser.isBanned) {
+      return setError(`????? ???????????? ?????? ??? ?????? ????: ${currentUser.banReason || '?????????? ???? ??????? ????'}`);
+    }
     if (!department) return setError('প্রথমে আপনার প্রোফাইলে বিভাগ বা টেকনোলজি পূরণ করুন।');
     if (selectedSemesters.length === 0) return setError('কমপক্ষে একটি সেমিস্টার নির্বাচন করুন।');
     const isSellerPlace = pickupType === 'seller_place' || pickupId === 'seller_place';

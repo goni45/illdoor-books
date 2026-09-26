@@ -589,10 +589,41 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Sync currentUser from auth profile
+  // Sync currentUser from auth profile with ban guard
   useEffect(() => {
-    if (profile) setCurrentUser(profile);
+    if (profile) {
+      const localBan = getLocalBannedUsers()[profile.id];
+      const isBanned = Boolean(profile.isBanned) || Boolean(localBan?.banned);
+      const banReason = profile.banReason || localBan?.reason || undefined;
+      setCurrentUser({
+        ...profile,
+        isBanned,
+        banReason,
+      });
+    }
   }, [profile]);
+
+  // Real-time local ban listener
+  useEffect(() => {
+    const handleBanUpdate = () => {
+      if (user?.id) {
+        const localBan = getLocalBannedUsers()[user.id];
+        if (localBan) {
+          setCurrentUser((prev) => ({
+            ...prev,
+            isBanned: localBan.banned,
+            banReason: localBan.reason,
+          }));
+        }
+      }
+    };
+    window.addEventListener('storage', handleBanUpdate);
+    window.addEventListener('admin-user-ban-updated', handleBanUpdate);
+    return () => {
+      window.removeEventListener('storage', handleBanUpdate);
+      window.removeEventListener('admin-user-ban-updated', handleBanUpdate);
+    };
+  }, [user?.id]);
 
   // ── Fetch pickup points ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1197,6 +1228,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const currentBanned = getLocalBannedUsers();
       currentBanned[userId] = { banned: isBanned, reason: banReason };
       localStorage.setItem('admin_banned_users', JSON.stringify(currentBanned));
+      window.dispatchEvent(new CustomEvent('admin-user-ban-updated', { detail: { userId, isBanned, banReason } }));
     } catch {
       // ignore
     }

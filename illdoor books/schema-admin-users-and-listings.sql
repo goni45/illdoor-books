@@ -124,4 +124,35 @@ end;
 $$;
 grant execute on function public.admin_delete_seller_listing to anon, authenticated;
 
+-- 9. Enforce Ban Guard on Seller Listings and Semester Bundles at Database Level
+create or replace function public.check_user_not_banned()
+returns trigger
+language plpgsql
+security definer
+as $$
+declare
+  v_is_banned boolean;
+begin
+  select is_banned into v_is_banned
+  from public.profiles
+  where id = auth.uid();
+
+  if coalesce(v_is_banned, false) = true then
+    raise exception '????? ???????????? ?????? (Banned) ??? ?????? ???? ???? ??????? ?????? ???? ?????? ???';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_check_seller_banned on public.seller_listings;
+create trigger trg_check_seller_banned
+before insert on public.seller_listings
+for each row execute function public.check_user_not_banned();
+
+drop trigger if exists trg_check_bundle_banned on public.semester_bundles;
+create trigger trg_check_bundle_banned
+before insert on public.semester_bundles
+for each row execute function public.check_user_not_banned();
+
 commit;

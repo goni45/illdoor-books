@@ -129,6 +129,15 @@ export function useSemesterBundles() {
   }, [user, refreshBundles]);
 
   const createBundleBatch = useCallback(async (drafts: BundleDraft[]) => {
+    try {
+      const raw = localStorage.getItem('admin_banned_users');
+      const localBanned = raw ? JSON.parse(raw) : {};
+      if (user?.id && localBanned[user.id]?.banned) {
+        throw new Error(`????? ???????????? ?????? ??? ?????? ????: ${localBanned[user.id]?.reason || '?????????? ???? ??????? ????'}`);
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('??????')) throw e;
+    }
     const { data, error: rpcError } = await supabase.rpc('create_semester_bundle_batch', { p_bundles: drafts });
     if (rpcError) throw new Error(rpcError.message);
     await refreshBundles();
