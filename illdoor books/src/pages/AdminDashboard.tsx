@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -45,6 +45,7 @@ import { Button } from '../components/common/Button';
 import { supabase } from '../lib/supabase';
 import {
   getTipJarSettings,
+  fetchTipJarSettings,
   saveTipJarSettings,
   DEFAULT_TIP_JAR_SETTINGS,
   DEFAULT_LEADERBOARD_ENTRIES,
@@ -120,6 +121,23 @@ export const AdminDashboard: React.FC = () => {
 
   const [tipJarConfig, setTipJarConfig] = useState<TipJarSettings>(getTipJarSettings);
   const [tipJarSavedMessage, setTipJarSavedMessage] = useState<string | null>(null);
+  const [isSavingTipJar, setIsSavingTipJar] = useState(false);
+  const [tipJarDbError, setTipJarDbError] = useState<string | null>(null);
+  const [tipJarLoading, setTipJarLoading] = useState(false);
+  const [copiedTipJarSql, setCopiedTipJarSql] = useState(false);
+
+  useEffect(() => {
+    if (activeAdminTab === 'tipjar') {
+      setTipJarLoading(true);
+      fetchTipJarSettings()
+        .then((loaded) => {
+          setTipJarConfig(loaded);
+        })
+        .finally(() => {
+          setTipJarLoading(false);
+        });
+    }
+  }, [activeAdminTab]);
 
   // Leaderboard manager state
   const [newDonorName, setNewDonorName] = useState('');
@@ -1115,15 +1133,24 @@ export const AdminDashboard: React.FC = () => {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => {
+                disabled={isSavingTipJar}
+                onClick={async () => {
                   if (window.confirm('আপনি কি সব সেটিংস ডিফল্টে রিসেট করতে চান?')) {
                     setTipJarConfig(DEFAULT_TIP_JAR_SETTINGS);
-                    saveTipJarSettings(DEFAULT_TIP_JAR_SETTINGS);
-                    setTipJarSavedMessage('সেটিংস ডিফল্টে রিসেট করা হয়েছে!');
-                    setTimeout(() => setTipJarSavedMessage(null), 3000);
+                    setIsSavingTipJar(true);
+                    setTipJarDbError(null);
+                    const result = await saveTipJarSettings(DEFAULT_TIP_JAR_SETTINGS);
+                    setIsSavingTipJar(false);
+                    if (result.success) {
+                      setTipJarSavedMessage('✓ সেটিংস ডিফল্টে রিসেট এবং ডাটাবেসে আপডেট করা হয়েছে!');
+                    } else {
+                      setTipJarSavedMessage('লোকাল সেটিংস রিসেট করা হয়েছে!');
+                      setTipJarDbError(result.error || null);
+                    }
+                    setTimeout(() => setTipJarSavedMessage(null), 3500);
                   }
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>রিসেট</span>
@@ -1131,23 +1158,119 @@ export const AdminDashboard: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => {
-                  saveTipJarSettings(tipJarConfig);
-                  setTipJarSavedMessage('✓ সফলভাবে সংরক্ষিত ও ওয়েবসাইটে লাইভ আপডেট হয়েছে!');
-                  setTimeout(() => setTipJarSavedMessage(null), 3500);
+                disabled={isSavingTipJar}
+                onClick={async () => {
+                  setIsSavingTipJar(true);
+                  setTipJarDbError(null);
+                  setTipJarSavedMessage(null);
+                  const result = await saveTipJarSettings(tipJarConfig);
+                  setIsSavingTipJar(false);
+                  if (result.success) {
+                    setTipJarSavedMessage('✓ সফলভাবে Supabase ডাটাবেসে সংরক্ষিত ও ওয়েবসাইটে লাইভ আপডেট হয়েছে!');
+                    setTimeout(() => setTipJarSavedMessage(null), 4000);
+                  } else {
+                    setTipJarSavedMessage('✓ লোকাল ব্রাউজারে সংরক্ষিত হয়েছে।');
+                    setTipJarDbError(result.error || 'ডাটাবেস টেবিল সংযোগ এরর');
+                  }
                 }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[#ef4d23] hover:bg-[#de3d13] text-white shadow-sm transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[#ef4d23] hover:bg-[#de3d13] text-white shadow-sm transition-all cursor-pointer disabled:opacity-50"
               >
-                <Save className="w-3.5 h-3.5" />
-                <span>সংরক্ষণ করুন</span>
+                {isSavingTipJar ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>সংরক্ষণ হচ্ছে...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>সংরক্ষণ করুন</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
+
+          {tipJarLoading && (
+            <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-300 text-xs font-medium flex items-center gap-2">
+              <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
+              <span>Supabase ডাটাবেস থেকে টিপ জার সেটিংস লোড করা হচ্ছে...</span>
+            </div>
+          )}
 
           {tipJarSavedMessage && (
             <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs font-semibold flex items-center gap-2 animate-in fade-in duration-200">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>{tipJarSavedMessage}</span>
+            </div>
+          )}
+
+          {tipJarDbError && (
+            <div className="p-4 rounded-2xl bg-amber-950/60 border border-amber-500/50 text-amber-200 text-xs space-y-3 animate-in fade-in duration-200">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-amber-300">
+                    ডাটাবেস নোটিস: {tipJarDbError}
+                  </p>
+                  <p className="text-amber-200/80 leading-relaxed">
+                    সেটিংসটি ক্লায়েন্ট ব্রাউজারে সংরক্ষিত হয়েছে। কিন্তু Supabase ডাটাবেসে <code className="bg-amber-900/50 px-1 py-0.5 rounded text-amber-100 font-mono">tip_jar_settings</code> টেবিলটি না থাকায় সব ডিভাইসে সিঙ্ক হতে পারছে না। আপনার Supabase ড্যাশবোর্ডের <strong>SQL Editor</strong>-এ গিয়ে নিচের কোডটি ১ বার রান করুন:
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const sql = `-- Migration: Tip Jar Settings Table
+create table if not exists public.tip_jar_settings (
+  id text primary key default 'default',
+  enabled boolean not null default true,
+  button_text text not null default 'Help me to buy a new iPhone',
+  title text not null default 'Help me to buy a new iPhone',
+  subtitle text not null default 'আমার না আপনার কাছ থেকে একটা iPhone পেতে ইচ্ছে করছে... আমাকে একটা iPhone কিনতে সাহায্য করবেন? 🥺👉👈',
+  image_url text not null default 'https://images.meme-arsenal.com/6105c3761e035663ba81e5667a46ee4d.jpg',
+  bkash_number text not null default '01712345678',
+  bkash_type text not null default 'Personal (Send Money)',
+  nagad_number text not null default '01812345678',
+  nagad_type text not null default 'Personal (Send Money)',
+  rocket_number text not null default '01912345678',
+  rocket_type text not null default 'Personal (Send Money)',
+  target_amount numeric not null default 125000,
+  collected_amount numeric not null default 16800,
+  note text not null default 'টাকা পাঠানোর পর রেফারেন্সে আপনার নাম/ডিপার্টমেন্ট লিখে দিতে পারেন। আপনাদের এই ভালোবাসা ও সাহায্য আমাদের নতুন ফিচার বানাতে উৎসাহ দেয়!',
+  show_leaderboard boolean not null default true,
+  leaderboard jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table public.tip_jar_settings enable row level security;
+drop policy if exists "tip_jar_settings_select" on public.tip_jar_settings;
+create policy "tip_jar_settings_select" on public.tip_jar_settings for select to anon, authenticated using (true);
+drop policy if exists "tip_jar_settings_all" on public.tip_jar_settings;
+create policy "tip_jar_settings_all" on public.tip_jar_settings for all to anon, authenticated using (true) with check (true);
+`;
+                    navigator.clipboard.writeText(sql);
+                    setCopiedTipJarSql(true);
+                    setTimeout(() => setCopiedTipJarSql(false), 3000);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] transition-colors cursor-pointer"
+                >
+                  {copiedTipJarSql ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>SQL কপি হয়েছে!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>SQL স্ক্রিপ্ট কপি করুন</span>
+                    </>
+                  )}
+                </button>
+                <span className="text-[11px] text-amber-300/70">
+                  (ফাইল: schema-tip-jar-settings.sql)
+                </span>
+              </div>
             </div>
           )}
 

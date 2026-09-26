@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Smartphone, Sparkles, X, Heart } from 'lucide-react';
-import { getTipJarSettings, subscribeTipJarSettings, TipJarSettings } from '../lib/tipJarStorage';
+import { getTipJarSettings, fetchTipJarSettings, subscribeTipJarSettings, TipJarSettings } from '../lib/tipJarStorage';
 import { TipJarModal } from './TipJarModal';
 import { useLocation } from 'react-router-dom';
 
@@ -15,6 +15,10 @@ export const TipJarWidget: React.FC = () => {
   const isAdminPath = location.pathname.startsWith('/admin');
 
   useEffect(() => {
+    fetchTipJarSettings().then((loaded) => {
+      setSettings(loaded);
+    });
+
     const unsubscribe = subscribeTipJarSettings((updated) => {
       setSettings(updated);
     });
