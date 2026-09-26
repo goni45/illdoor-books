@@ -12,7 +12,14 @@ alter table public.profiles
   add column if not exists ban_reason text;
 
 -- 2. Grant table-level permissions to anon and authenticated
-grant select, update on public.profiles to authenticated, anon;
+-- 2. Restrict direct profiles SELECT to safe fields only (prevents phone scraping)
+revoke select on public.profiles from anon, authenticated;
+grant select (
+  id, full_name, avatar_url, is_verified, is_admin, rating, total_sales,
+  total_purchases, institute, department, semester, created_at,
+  is_banned, banned_at, ban_reason
+) on public.profiles to anon, authenticated;
+grant update on public.profiles to authenticated, anon;
 grant select, insert, update, delete on public.seller_listings to authenticated, anon;
 
 -- 3. RLS Policies on profiles
