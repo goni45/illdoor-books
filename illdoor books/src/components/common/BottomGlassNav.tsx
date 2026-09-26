@@ -45,20 +45,20 @@ export const BottomGlassNav: React.FC = () => {
     >
       {/* Medium Glass Floating Pill Dock */}
       <nav
-        className="pointer-events-auto flex items-center gap-1 sm:gap-2 px-2 py-1.5 sm:px-2.5 sm:py-2 bg-white/45 backdrop-blur-2xl border border-white/60 shadow-[0_12px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.85)] ring-1 ring-black/[0.04] rounded-full select-none transition-colors duration-200"
+        className="pointer-events-auto flex items-center gap-0.5 min-[360px]:gap-1 sm:gap-2 px-1.5 min-[360px]:px-2.5 py-1 sm:py-2 bg-white/55 backdrop-blur-2xl border border-white/60 shadow-[0_12px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.85)] ring-1 ring-black/[0.04] rounded-full select-none transition-colors duration-200"
         aria-label="Quick Bottom Navigation"
       >
         {/* 1. Books (Browse) */}
         <button
           type="button"
           onClick={() => handleNavigate('browse')}
-          className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-150 cursor-pointer ${
+          className={`flex items-center gap-1 sm:gap-1.5 px-2.5 min-[360px]:px-3 sm:px-4 py-1 sm:py-2 rounded-full text-[11px] min-[360px]:text-xs sm:text-[13px] font-medium transition-all duration-150 cursor-pointer ${
             activeView === 'browse'
               ? 'bg-white/80 text-[#ef4d23] font-semibold shadow-2xs backdrop-blur-md'
               : 'text-neutral-800 hover:text-neutral-950 hover:bg-white/50'
           }`}
         >
-          <BookOpen className="w-4 h-4 shrink-0" />
+          <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
           <span>Browse</span>
         </button>
 
@@ -66,13 +66,13 @@ export const BottomGlassNav: React.FC = () => {
         <button
           type="button"
           onClick={() => handleNavigate('sell')}
-          className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-150 cursor-pointer shadow-xs ${
+          className={`flex items-center gap-1 sm:gap-1.5 px-2.5 min-[360px]:px-3.5 sm:px-4 py-1 sm:py-2 rounded-full text-[11px] min-[360px]:text-xs sm:text-[13px] font-medium transition-all duration-150 cursor-pointer shadow-xs ${
             activeView === 'sell'
               ? 'bg-[#ef4d23] text-white ring-2 ring-[#ef4d23]/30 font-semibold'
               : 'bg-[#ef4d23]/90 hover:bg-[#ef4d23] text-white hover:shadow-sm'
           }`}
         >
-          <Plus className="w-4 h-4 shrink-0" />
+          <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
           <span className="whitespace-nowrap">Sell Book</span>
         </button>
 
@@ -80,13 +80,13 @@ export const BottomGlassNav: React.FC = () => {
         <button
           type="button"
           onClick={() => handleNavigate('profile')}
-          className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-150 cursor-pointer ${
+          className={`flex items-center gap-1 sm:gap-1.5 px-2.5 min-[360px]:px-3 sm:px-4 py-1 sm:py-2 rounded-full text-[11px] min-[360px]:text-xs sm:text-[13px] font-medium transition-all duration-150 cursor-pointer ${
             activeView === 'profile'
               ? 'bg-white/80 text-[#ef4d23] font-semibold shadow-2xs backdrop-blur-md'
               : 'text-neutral-800 hover:text-neutral-950 hover:bg-white/50'
           }`}
         >
-          <User className="w-4 h-4 shrink-0" />
+          <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
           <span>Profile</span>
         </button>
       </nav>

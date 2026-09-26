@@ -49,8 +49,8 @@ const BookCardImpl: React.FC<BookCardProps> = ({ book, priority = false }) => {
       onClick={() => navigateToBook(book.id)}
       className={`group flex flex-col rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer relative ${cardBorderAndShadow}`}
     >
-      {/* Book Cover Image Area */}
-      <div className="relative w-full aspect-[4/3] sm:aspect-[4/3] bg-[#f5f2ee] overflow-hidden flex items-center justify-center">
+      {/* Book Cover Image Area - Hidden on phone view to keep cards compact and prevent long scrolling */}
+      <div className="hidden sm:flex relative w-full aspect-[4/3] bg-[#f5f2ee] overflow-hidden items-center justify-center">
         <img
           src={book.images[0] || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop&q=80'}
           alt={book.title}
@@ -130,9 +130,9 @@ const BookCardImpl: React.FC<BookCardProps> = ({ book, priority = false }) => {
         </div>
       </div>
 
-      {/* Official Store Strip (for Admin VIP Cards) */}
+      {/* Official Store Strip (for Admin VIP Cards on Desktop) */}
       {isAdminVIP && (
-        <div className="flex items-center justify-between px-3.5 py-1.5 bg-gradient-to-r from-amber-100/95 via-amber-50 to-orange-100/80 border-b border-amber-200/80 text-amber-950 text-xs select-none">
+        <div className="hidden sm:flex items-center justify-between px-3.5 py-1.5 bg-gradient-to-r from-amber-100/95 via-amber-50 to-orange-100/80 border-b border-amber-200/80 text-amber-950 text-xs select-none">
           <div className="flex items-center gap-1.5 min-w-0 font-bold">
             <Crown className="w-3.5 h-3.5 text-amber-600 shrink-0 fill-amber-400" />
             <span className="truncate tracking-tight text-amber-950">অফিশিয়াল ক্যাম্পাস অ্যাডমিন স্টোর</span>
@@ -143,11 +143,57 @@ const BookCardImpl: React.FC<BookCardProps> = ({ book, priority = false }) => {
         </div>
       )}
 
-      {/* Card Content */}
-      <div className="flex flex-col flex-1 p-3.5 sm:p-4 justify-between gap-2.5">
+      {/* Card Content - Compact & Clean in phone view */}
+      <div className="flex flex-col flex-1 p-2.5 sm:p-4 justify-between gap-1.5 sm:gap-2.5">
         <div>
-          {/* Subject Code & Availability Status */}
-          <div className="flex items-center justify-between gap-2 mb-1.5">
+          {/* Mobile-only Header Row (Wishlist, Subject Code, Status & Badges) */}
+          <div className="flex sm:hidden items-center justify-between gap-1.5 mb-1">
+            <div className="flex items-center gap-1 flex-wrap min-w-0">
+              <span
+                className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-tight ${
+                  isAdminVIP
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                    : 'bg-[#0b0f1a]/5 text-[#0b0f1a] border border-black/5'
+                }`}
+              >
+                কোড {book.subjectCode}
+              </span>
+              {isAdminVIP ? (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold">
+                  <Crown className="w-2.5 h-2.5 fill-amber-200" />
+                  VIP
+                </span>
+              ) : isVerifiedStudent ? (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-semibold">
+                  <ShieldCheck className="w-2.5 h-2.5" />
+                  ভেরিফাইড
+                </span>
+              ) : null}
+            </div>
+
+            <button
+              id={`wishlist-btn-mobile-${book.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleWishlist(book.id);
+              }}
+              title={wishlisted ? 'উইশলিস্ট থেকে মুছুন' : 'উইশলিস্টে যুক্ত করুন'}
+              className="w-6 h-6 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-600 shrink-0 transition-colors cursor-pointer"
+            >
+              <Bookmark
+                className={`w-3.5 h-3.5 transition-transform active:scale-90 ${
+                  wishlisted
+                    ? isAdminVIP
+                      ? 'fill-amber-500 text-amber-500'
+                      : 'fill-[#ef4d23] text-[#ef4d23]'
+                    : ''
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Desktop Subject Code & Availability Status */}
+          <div className="hidden sm:flex items-center justify-between gap-2 mb-1.5">
             <span
               className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono font-semibold tracking-tight ${
                 isAdminVIP
@@ -160,15 +206,25 @@ const BookCardImpl: React.FC<BookCardProps> = ({ book, priority = false }) => {
             <StatusBadge status={availableStock > 0 ? 'Available' : 'Unavailable'} size="sm" />
           </div>
 
-          <div className="mb-2">
-            <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold border ${book.publication === 'Technical Publication' ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+          {/* Publication and Mobile Availability */}
+          <div className="flex items-center justify-between gap-1 mb-1 sm:mb-2">
+            <span
+              className={`inline-flex px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold border ${
+                book.publication === 'Technical Publication'
+                  ? 'bg-sky-50 text-sky-700 border-sky-200'
+                  : 'bg-orange-50 text-orange-700 border-orange-200'
+              }`}
+            >
               {book.publication || 'Haque Publication'}
             </span>
+            <div className="sm:hidden">
+              <StatusBadge status={availableStock > 0 ? 'Available' : 'Unavailable'} size="sm" />
+            </div>
           </div>
 
           {/* Book Title */}
           <h3
-            className={`font-semibold text-sm sm:text-[15px] text-[#0b0f1a] line-clamp-2 leading-snug transition-colors mb-1 ${
+            className={`font-semibold text-xs sm:text-[15px] text-[#0b0f1a] line-clamp-2 leading-snug transition-colors mb-1 ${
               isAdminVIP ? 'group-hover:text-amber-700' : 'group-hover:text-[#ef4d23]'
             }`}
           >
@@ -176,21 +232,38 @@ const BookCardImpl: React.FC<BookCardProps> = ({ book, priority = false }) => {
           </h3>
 
           {/* Semester & Condition */}
-          <div className="flex items-center flex-wrap gap-1.5 text-xs text-neutral-500 mb-2">
+          <div className="flex items-center flex-wrap gap-1 text-[10px] sm:text-xs text-neutral-500 mb-1 sm:mb-2">
             <span>{visibleCurriculum?.department || book.department}</span>
             <span>•</span>
             <span>{visibleCurriculum?.semester || book.semester}</span>
-            {availableStock > 0 && <><span>•</span><ConditionBadge condition={book.condition} size="sm" /></>}
+            {availableStock > 0 && (
+              <>
+                <span>•</span>
+                <ConditionBadge condition={book.condition} size="sm" />
+              </>
+            )}
           </div>
 
-          {/* Dedicated Trust & Verification Assurance Strip */}
+          {/* Mobile Pickup Location Preview */}
+          <div className="flex sm:hidden items-center gap-1 text-[10px] text-neutral-500 truncate mb-1">
+            <MapPin className="w-2.5 h-2.5 text-[#ef4d23] shrink-0" />
+            <span className="truncate">
+              {availableStock > 0
+                ? book.pickupType === 'seller_place'
+                  ? book.sellerPlaceAddress || 'বিক্রেতার স্থান'
+                  : book.pickupPointName
+                : 'অফার নেই'}
+            </span>
+          </div>
+
+          {/* Dedicated Trust & Verification Assurance Strip (Desktop) */}
           {isAdminVIP ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50/50 border border-amber-300/70 text-[11px] font-semibold text-amber-900 shadow-xs mb-1">
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50/50 border border-amber-300/70 text-[11px] font-semibold text-amber-900 shadow-xs mb-1">
               <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <span className="truncate">দ্রুত ক্যাম্পাস হ্যান্ডওভার • ১০০% আসল বিটিইবি বই</span>
             </div>
           ) : isVerifiedStudent ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50/80 border border-emerald-200/70 text-[11px] font-medium text-emerald-800 mb-1">
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50/80 border border-emerald-200/70 text-[11px] font-medium text-emerald-800 mb-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="truncate">ভেরিফাইড শিক্ষার্থী বিক্রেতা • ক্যাম্পাস পিকআপ</span>
             </div>
@@ -199,29 +272,40 @@ const BookCardImpl: React.FC<BookCardProps> = ({ book, priority = false }) => {
 
         {/* Price & Savings Display */}
         <div
-          className={`pt-2 border-t flex items-end justify-between gap-2 ${
+          className={`pt-1.5 sm:pt-2 border-t flex items-end justify-between gap-1.5 sm:gap-2 ${
             isAdminVIP ? 'border-amber-200/80' : 'border-[#e5e5e5]/80'
           }`}
         >
-          {availableStock > 0 ? <PriceDisplay
-            sellingPrice={book.lowestPrice ?? book.sellingPrice}
-            originalPrice={book.originalPrice}
-            savings={book.savings}
-            size="sm"
-            layout="stacked"
-          /> : <div><p className="text-sm font-bold text-neutral-700">স্টক ০</p><p className="text-[11px] text-neutral-500">অনুপলব্ধ</p></div>}
+          {availableStock > 0 ? (
+            <PriceDisplay
+              sellingPrice={book.lowestPrice ?? book.sellingPrice}
+              originalPrice={book.originalPrice}
+              savings={book.savings}
+              size="sm"
+              layout="stacked"
+            />
+          ) : (
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-neutral-700">স্টক ০</p>
+              <p className="text-[10px] sm:text-[11px] text-neutral-500">অনুপলব্ধ</p>
+            </div>
+          )}
 
           {isAdminVIP ? (
-            <span className="text-[11px] font-bold text-amber-900 bg-amber-100/90 border border-amber-300/60 px-2.5 py-1 rounded-full group-hover:bg-gradient-to-r group-hover:from-amber-500 group-hover:to-orange-500 group-hover:text-white group-hover:border-transparent transition-all shadow-xs">
+            <span className="text-[10px] sm:text-[11px] font-bold text-amber-900 bg-amber-100/90 border border-amber-300/60 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full group-hover:bg-gradient-to-r group-hover:from-amber-500 group-hover:to-orange-500 group-hover:text-white group-hover:border-transparent transition-all shadow-xs">
               ভিআইপি বিবরণ
             </span>
           ) : availableStock === 0 ? (
-            <button type="button" onClick={startSelling} className="text-[11px] font-semibold text-white bg-[#ef4d23] px-2.5 py-1.5 rounded-full hover:bg-[#d9431d] transition-colors">
-              বইটি বিক্রি করুন
+            <button
+              type="button"
+              onClick={startSelling}
+              className="text-[10px] sm:text-[11px] font-semibold text-white bg-[#ef4d23] px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-full hover:bg-[#d9431d] transition-colors cursor-pointer"
+            >
+              বিক্রি করুন
             </button>
           ) : (
-            <span className="text-[11px] font-medium text-neutral-500 bg-[#f5f2ee] px-2 py-1 rounded-full group-hover:bg-[#0b0f1a] group-hover:text-white transition-colors">
-              স্টক {availableStock}টি • {book.sellerCount ?? 0} জন বিক্রেতা
+            <span className="text-[10px] sm:text-[11px] font-medium text-neutral-500 bg-[#f5f2ee] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full group-hover:bg-[#0b0f1a] group-hover:text-white transition-colors truncate max-w-[105px] sm:max-w-none text-right">
+              {availableStock}টি কপি • {book.sellerCount ?? 0} জন
             </span>
           )}
         </div>

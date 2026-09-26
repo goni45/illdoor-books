@@ -23,11 +23,34 @@ import {
   Plus,
   Trash2,
   X,
+  Smartphone,
+  Sparkles,
+  Save,
+  RotateCcw,
+  Trophy,
+  Moon,
+  Clock,
+  Bell,
 } from 'lucide-react';
+import {
+  getDayPrayerSchedule,
+  isReminderEnabled,
+  setReminderEnabled,
+  formatBengaliTime,
+  PrayerName,
+} from '../lib/prayerTimes';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Button } from '../components/common/Button';
 import { supabase } from '../lib/supabase';
+import {
+  getTipJarSettings,
+  saveTipJarSettings,
+  DEFAULT_TIP_JAR_SETTINGS,
+  DEFAULT_LEADERBOARD_ENTRIES,
+  TipJarSettings,
+  TipJarLeaderboardEntry,
+} from '../lib/tipJarStorage';
 import type { BookListing } from '../types';
 import type { Publication } from '../types';
 
@@ -89,8 +112,46 @@ export const AdminDashboard: React.FC = () => {
   } = useMarketplace();
 
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'models' | 'listings' | 'orders' | 'disputes' | 'verification'
+    'overview' | 'models' | 'listings' | 'orders' | 'disputes' | 'verification' | 'tipjar' | 'namaz'
   >('overview');
+
+  const [namazEnabled, setNamazEnabled] = useState<boolean>(isReminderEnabled);
+  const prayerSchedule = getDayPrayerSchedule();
+
+  const [tipJarConfig, setTipJarConfig] = useState<TipJarSettings>(getTipJarSettings);
+  const [tipJarSavedMessage, setTipJarSavedMessage] = useState<string | null>(null);
+
+  // Leaderboard manager state
+  const [newDonorName, setNewDonorName] = useState('');
+  const [newDonorAmount, setNewDonorAmount] = useState('');
+  const [newDonorMessage, setNewDonorMessage] = useState('');
+  const [newDonorTimeAgo, setNewDonorTimeAgo] = useState('Just now');
+
+  const handleAddDonor = () => {
+    if (!newDonorName.trim() || !newDonorAmount) return;
+    const newEntry: TipJarLeaderboardEntry = {
+      id: Date.now().toString(),
+      name: newDonorName.trim(),
+      amount: Number(newDonorAmount) || 0,
+      message: newDonorMessage.trim() || undefined,
+      timeAgo: newDonorTimeAgo.trim() || 'Just now',
+    };
+    setTipJarConfig((prev) => ({
+      ...prev,
+      leaderboard: [newEntry, ...(prev.leaderboard || [])],
+    }));
+    setNewDonorName('');
+    setNewDonorAmount('');
+    setNewDonorMessage('');
+    setNewDonorTimeAgo('Just now');
+  };
+
+  const handleRemoveDonor = (id: string) => {
+    setTipJarConfig((prev) => ({
+      ...prev,
+      leaderboard: (prev.leaderboard || []).filter((d) => d.id !== id),
+    }));
+  };
 
   const [adminSearch, setAdminSearch] = useState('');
   const [modelForm, setModelForm] = useState<ModelFormState>(EMPTY_MODEL_FORM);
@@ -384,6 +445,41 @@ export const AdminDashboard: React.FC = () => {
             <span className="w-4 h-4 rounded-full bg-amber-500 text-[#0b0f1a] text-[10px] flex items-center justify-center font-bold">
               {pendingVerifications}
             </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveAdminTab('tipjar');
+            setTipJarSavedMessage(null);
+          }}
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+            activeAdminTab === 'tipjar'
+              ? 'bg-[#ef4d23] text-white'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <span>📱 iPhone ফান্ড সেটিংস</span>
+          {tipJarConfig.enabled ? (
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          ) : (
+            <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.2 rounded">বন্ধ</span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('namaz')}
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+            activeAdminTab === 'namaz'
+              ? 'bg-emerald-600 text-white'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <span>🕌 নামাজ রিমাইন্ডার</span>
+          {namazEnabled ? (
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          ) : (
+            <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.2 rounded">বন্ধ</span>
           )}
         </button>
       </div>
@@ -997,6 +1093,807 @@ export const AdminDashboard: React.FC = () => {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB 7: TIP JAR / IPHONE FUND SETTINGS */}
+      {activeAdminTab === 'tipjar' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900 border border-slate-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📱</span>
+                <h2 className="text-lg font-bold text-white">
+                  "Help me to buy a new iPhone" উইজেট ও পেমেন্ট সেটিংস
+                </h2>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                শিক্ষার্থীদের স্ক্রিনে প্রদর্শিত ফ্লোটিং উইজেট, মিম ছবি এবং বিকাশ, নগদ ও রকেট সেন্ড মানি নম্বর পরিবর্তন করুন।
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('আপনি কি সব সেটিংস ডিফল্টে রিসেট করতে চান?')) {
+                    setTipJarConfig(DEFAULT_TIP_JAR_SETTINGS);
+                    saveTipJarSettings(DEFAULT_TIP_JAR_SETTINGS);
+                    setTipJarSavedMessage('সেটিংস ডিফল্টে রিসেট করা হয়েছে!');
+                    setTimeout(() => setTipJarSavedMessage(null), 3000);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>রিসেট</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  saveTipJarSettings(tipJarConfig);
+                  setTipJarSavedMessage('✓ সফলভাবে সংরক্ষিত ও ওয়েবসাইটে লাইভ আপডেট হয়েছে!');
+                  setTimeout(() => setTipJarSavedMessage(null), 3500);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[#ef4d23] hover:bg-[#de3d13] text-white shadow-sm transition-all cursor-pointer"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>সংরক্ষণ করুন</span>
+              </button>
+            </div>
+          </div>
+
+          {tipJarSavedMessage && (
+            <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs font-semibold flex items-center gap-2 animate-in fade-in duration-200">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{tipJarSavedMessage}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left 2 Cols: Form inputs */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Card 1: Visibility & Branding */}
+              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      উইজেট সক্রিয়করণ ও বিবরণ
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      ওয়েবসাইটের নিচে ভাসমান বোতামটি চালু বা বন্ধ রাখুন
+                    </p>
+                  </div>
+
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tipJarConfig.enabled}
+                      onChange={(e) =>
+                        setTipJarConfig((prev) => ({ ...prev, enabled: e.target.checked }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#ef4d23]"></div>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      ভাসমান বোতামের লেখা (Button Text)
+                    </label>
+                    <input
+                      type="text"
+                      value={tipJarConfig.buttonText}
+                      onChange={(e) =>
+                        setTipJarConfig((prev) => ({ ...prev, buttonText: e.target.value }))
+                      }
+                      placeholder="Help me to buy a new iPhone"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      পপ-আপের শিরোনাম (Modal Title)
+                    </label>
+                    <input
+                      type="text"
+                      value={tipJarConfig.title}
+                      onChange={(e) =>
+                        setTipJarConfig((prev) => ({ ...prev, title: e.target.value }))
+                      }
+                      placeholder="Help me to buy a new iPhone plsssssssss"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    মিম ছবির ডিরেক্ট লিংক (Meme Image URL)
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="url"
+                      value={tipJarConfig.imageUrl}
+                      onChange={(e) =>
+                        setTipJarConfig((prev) => ({ ...prev, imageUrl: e.target.value }))
+                      }
+                      placeholder="https://... বা /iphone-fund-meme.jpg"
+                      className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTipJarConfig((prev) => ({
+                          ...prev,
+                          imageUrl: 'https://images.meme-arsenal.com/6105c3761e035663ba81e5667a46ee4d.jpg',
+                        }))
+                      }
+                      className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold border border-slate-700 whitespace-nowrap cursor-pointer"
+                    >
+                      আসল লিংক দিন
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTipJarConfig((prev) => ({
+                          ...prev,
+                          imageUrl: '/iphone-fund-meme.jpg',
+                        }))
+                      }
+                      className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold border border-slate-700 whitespace-nowrap cursor-pointer"
+                    >
+                      লোকাল ব্যাকআপ দিন
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    এখানে যেকোনো ইমেজ URL দিলে তা স্বয়ংক্রিয়ভাবে উইজেট ও পপ-আপের মিম হিসেবে সেট হয়ে যাবে।
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    পপ-আপের বার্তা / সাবটাইটেল (Subtitle)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={tipJarConfig.subtitle}
+                    onChange={(e) =>
+                      setTipJarConfig((prev) => ({ ...prev, subtitle: e.target.value }))
+                    }
+                    placeholder="আমার না আপনার কাছ থেকে একটা iPhone পেতে ইচ্ছে করছে... আমাকে একটা iPhone কিনতে সাহায্য করবেন? 🥺👉👈"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                  />
+                </div>
+              </div>
+
+              {/* Card 2: Send Money Accounts (bKash, Nagad, Rocket) */}
+              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+                <div className="pb-3 border-b border-slate-800">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                    <Smartphone className="w-4 h-4 text-[#ef4d23]" />
+                    সেন্ড মানি অ্যাকাউন্টসমূহ (Send Money Accounts)
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    এখানে যে নম্বরগুলো দেবেন শিক্ষার্থীরা এক ক্লিকে কপি করে টাকা পাঠাতে পারবে
+                  </p>
+                </div>
+
+                {/* 1. bKash */}
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#e2136e]">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#e2136e]" />
+                    <span>bKash (বিকাশ) একাউন্ট</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-400">বিকাশ মোবাইল নম্বর</label>
+                      <input
+                        type="text"
+                        value={tipJarConfig.bkashNumber}
+                        onChange={(e) =>
+                          setTipJarConfig((prev) => ({ ...prev, bkashNumber: e.target.value }))
+                        }
+                        placeholder="01XXXXXXXXX"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-400">একাউন্টের ধরন / লেবেল</label>
+                      <input
+                        type="text"
+                        value={tipJarConfig.bkashType}
+                        onChange={(e) =>
+                          setTipJarConfig((prev) => ({ ...prev, bkashType: e.target.value }))
+                        }
+                        placeholder="Personal (Send Money)"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Nagad */}
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#f7941d]">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#f7941d]" />
+                    <span>Nagad (নগদ) একাউন্ট</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-400">নগদ মোবাইল নম্বর</label>
+                      <input
+                        type="text"
+                        value={tipJarConfig.nagadNumber}
+                        onChange={(e) =>
+                          setTipJarConfig((prev) => ({ ...prev, nagadNumber: e.target.value }))
+                        }
+                        placeholder="01XXXXXXXXX"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-400">একাউন্টের ধরন / লেবেল</label>
+                      <input
+                        type="text"
+                        value={tipJarConfig.nagadType}
+                        onChange={(e) =>
+                          setTipJarConfig((prev) => ({ ...prev, nagadType: e.target.value }))
+                        }
+                        placeholder="Personal (Send Money)"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Rocket */}
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#a755b0]">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#8c3494]" />
+                    <span>Rocket (রকেট) একাউন্ট</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-400">রকেট মোবাইল নম্বর</label>
+                      <input
+                        type="text"
+                        value={tipJarConfig.rocketNumber}
+                        onChange={(e) =>
+                          setTipJarConfig((prev) => ({ ...prev, rocketNumber: e.target.value }))
+                        }
+                        placeholder="01XXXXXXXXX"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-400">একাউন্টের ধরন / লেবেল</label>
+                      <input
+                        type="text"
+                        value={tipJarConfig.rocketType}
+                        onChange={(e) =>
+                          setTipJarConfig((prev) => ({ ...prev, rocketType: e.target.value }))
+                        }
+                        placeholder="Personal (Send Money)"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Target, Raised & Note */}
+              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+                <div className="pb-3 border-b border-slate-800">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                    <TrendingUp className="w-4 h-4 text-emerald-400" />
+                    টার্গেট ও ধন্যবাদ নোট
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    iPhone কেনার মোট বাজেট ও শিক্ষার্থীদের জন্য নির্দেশনা বার্তা
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      টার্গেট এমাউন্ট (টাকা)
+                    </label>
+                    <input
+                      type="number"
+                      value={tipJarConfig.targetAmount}
+                      onChange={(e) =>
+                        setTipJarConfig((prev) => ({
+                          ...prev,
+                          targetAmount: Number(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      সংগৃহীত এমাউন্ট (টাকা)
+                    </label>
+                    <input
+                      type="number"
+                      value={tipJarConfig.collectedAmount}
+                      onChange={(e) =>
+                        setTipJarConfig((prev) => ({
+                          ...prev,
+                          collectedAmount: Number(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    ধন্যবাদ / রেফারেন্স নির্দেশিকা নোট
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={tipJarConfig.note}
+                    onChange={(e) =>
+                      setTipJarConfig((prev) => ({ ...prev, note: e.target.value }))
+                    }
+                    placeholder="টাকা পাঠানোর পর রেফারেন্সে আপনার নাম বা রোল নম্বর লিখে দিতে পারেন..."
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                  />
+                </div>
+              </div>
+
+              {/* Card 4: Leaderboard Management */}
+              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                      <Trophy className="w-4 h-4 text-amber-400" />
+                      লিডারবোর্ড ও সাম্প্রতিক সহায়তা (Donors Leaderboard)
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      যেমন: "Mahi just sent 200 taka" — এখান থেকে যেকোনো নাম, টাকা ও মেসেজ এডিট/যোগ/মুছতে পারবেন
+                    </p>
+                  </div>
+
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tipJarConfig.showLeaderboard !== false}
+                      onChange={(e) =>
+                        setTipJarConfig((prev) => ({ ...prev, showLeaderboard: e.target.checked }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#ef4d23]"></div>
+                  </label>
+                </div>
+
+                {/* Add new donor form */}
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
+                    <Plus className="w-3.5 h-3.5" />
+                    নতুন ডোনার যোগ করুন
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <input
+                      type="text"
+                      value={newDonorName}
+                      onChange={(e) => setNewDonorName(e.target.value)}
+                      placeholder="নাম (যেমন: Mahi)"
+                      className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                    />
+                    <input
+                      type="number"
+                      value={newDonorAmount}
+                      onChange={(e) => setNewDonorAmount(e.target.value)}
+                      placeholder="টাকা (যেমন: 200)"
+                      className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                    />
+                    <input
+                      type="text"
+                      value={newDonorTimeAgo}
+                      onChange={(e) => setNewDonorTimeAgo(e.target.value)}
+                      placeholder="সময় (যেমন: Just now)"
+                      className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newDonorMessage}
+                      onChange={(e) => setNewDonorMessage(e.target.value)}
+                      placeholder="ছোট্ট মেসেজ বা শুভেচ্ছা (ঐচ্ছিক)"
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#ef4d23]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddDonor}
+                      disabled={!newDonorName.trim() || !newDonorAmount}
+                      className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-40"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>যুক্ত করুন</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* List of current donors with instant in-line editing */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>বর্তমান ডোনার তালিকা ({tipJarConfig.leaderboard?.length || 0}):</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTipJarConfig((prev) => ({
+                          ...prev,
+                          leaderboard: DEFAULT_LEADERBOARD_ENTRIES,
+                        }))
+                      }
+                      className="text-[11px] text-amber-400 hover:underline cursor-pointer"
+                    >
+                      ডিফল্ট ডোনার রিস্টোর করুন
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {(tipJarConfig.leaderboard || []).map((donor, idx) => (
+                      <div
+                        key={donor.id || idx}
+                        className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2 text-xs"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="w-5 h-5 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center font-bold text-[10px] shrink-0">
+                            #{idx + 1}
+                          </span>
+                          <input
+                            type="text"
+                            value={donor.name}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setTipJarConfig((prev) => ({
+                                ...prev,
+                                leaderboard: (prev.leaderboard || []).map((d) =>
+                                  d.id === donor.id ? { ...d, name: val } : d
+                                ),
+                              }));
+                            }}
+                            placeholder="ডোনার নাম"
+                            className="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs font-semibold focus:outline-none focus:border-[#ef4d23]"
+                          />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={donor.amount}
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 0;
+                                setTipJarConfig((prev) => ({
+                                  ...prev,
+                                  leaderboard: (prev.leaderboard || []).map((d) =>
+                                    d.id === donor.id ? { ...d, amount: val } : d
+                                  ),
+                                }));
+                              }}
+                              className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-amber-400 font-mono font-bold text-xs focus:outline-none focus:border-[#ef4d23]"
+                            />
+                            <span className="text-slate-400 text-[11px]">৳</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDonor(donor.id)}
+                            title="মুছে ফেলুন"
+                            className="p-1 rounded text-rose-400 hover:bg-rose-950/60 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={donor.message || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setTipJarConfig((prev) => ({
+                                ...prev,
+                                leaderboard: (prev.leaderboard || []).map((d) =>
+                                  d.id === donor.id ? { ...d, message: val } : d
+                                ),
+                              }));
+                            }}
+                            placeholder="মেসেজ / শুভেচ্ছা"
+                            className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-300 text-[11px] focus:outline-none focus:border-[#ef4d23]"
+                          />
+                          <input
+                            type="text"
+                            value={donor.timeAgo || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setTipJarConfig((prev) => ({
+                                ...prev,
+                                leaderboard: (prev.leaderboard || []).map((d) =>
+                                  d.id === donor.id ? { ...d, timeAgo: val } : d
+                                ),
+                              }));
+                            }}
+                            placeholder="সময় (যেমন: Just now)"
+                            className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-400 text-[11px] focus:outline-none focus:border-[#ef4d23]"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Col: Live Preview */}
+            <div className="space-y-4">
+              <div className="sticky top-6 p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    লাইভ প্রিভিউ (Live Preview)
+                  </span>
+                  <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-mono">
+                    {tipJarConfig.enabled ? 'সক্রিয়' : 'বন্ধ'}
+                  </span>
+                </div>
+
+                {/* Meme Image Preview */}
+                <div className="space-y-2">
+                  <span className="text-xs text-slate-400">বর্তমান মিম ছবি:</span>
+                  <div className="w-full h-44 rounded-xl overflow-hidden bg-slate-950 border border-slate-700 relative flex items-center justify-center">
+                    <img
+                      src={tipJarConfig.imageUrl || '/iphone-fund-meme.jpg'}
+                      alt="Preview"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/iphone-fund-meme.jpg';
+                      }}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute bottom-2 left-2 right-2 bg-black/70 backdrop-blur-xs px-2 py-1 rounded text-[10px] text-amber-300 truncate">
+                      {tipJarConfig.title}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Leaderboard snippet in preview */}
+                {tipJarConfig.showLeaderboard !== false && (tipJarConfig.leaderboard?.length ?? 0) > 0 && (
+                  <div className="space-y-1.5 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                    <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                      <Trophy className="w-3 h-3" />
+                      লিডারবোর্ড প্রিভিউ
+                    </span>
+                    <div className="space-y-1 max-h-28 overflow-y-auto">
+                      {(tipJarConfig.leaderboard || []).slice(0, 3).map((d, i) => (
+                        <div key={d.id || i} className="flex justify-between text-[11px] text-slate-300 truncate">
+                          <span className="truncate">{d.name} sent:</span>
+                          <span className="text-amber-400 font-bold ml-1 shrink-0">{d.amount} ৳</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pill Mockup */}
+                <div className="space-y-2">
+                  <span className="text-xs text-slate-400">স্ক্রিনের নিচে যেমন দেখাবে:</span>
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-amber-400 bg-neutral-900 shrink-0">
+                      <img
+                        src={tipJarConfig.imageUrl || '/iphone-fund-meme.jpg'}
+                        alt="Meme"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/iphone-fund-meme.jpg';
+                        }}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white truncate">
+                        {tipJarConfig.buttonText}
+                      </p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        Send Money (bKash/Nagad/Rocket)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Numbers Summary */}
+                <div className="pt-2 border-t border-slate-800 space-y-1.5 text-xs">
+                  <div className="flex justify-between text-slate-400">
+                    <span>bKash:</span>
+                    <span className="text-pink-400 font-mono font-bold">{tipJarConfig.bkashNumber || 'দেওয়া হয়নি'}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>নগদ:</span>
+                    <span className="text-orange-400 font-mono font-bold">{tipJarConfig.nagadNumber || 'দেওয়া হয়নি'}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>রকেট:</span>
+                    <span className="text-purple-400 font-mono font-bold">{tipJarConfig.rocketNumber || 'দেওয়া হয়নি'}</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveTipJarSettings(tipJarConfig);
+                    setTipJarSavedMessage('✓ সেটিংস সংরক্ষিত হয়েছে!');
+                    setTimeout(() => setTipJarSavedMessage(null), 3500);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-[#ef4d23] hover:bg-[#de3d13] text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>পরিবর্তন সংরক্ষণ করুন</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 8: NAMAZ REMINDER */}
+      {activeAdminTab === 'namaz' && (
+        <div className="space-y-6">
+          {/* Main Status Header */}
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 border border-emerald-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-xl shrink-0">
+                🕌
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>নামাজ রিমাইন্ডার সেটিংস ও লাইভ ওয়াক্ত</span>
+                  <span className="text-[11px] font-normal text-emerald-300 bg-emerald-950 border border-emerald-800/60 px-2 py-0.5 rounded-full">
+                    ঢাকা, বাংলাদেশ সময়
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  শিক্ষার্থীরা ওয়েবসাইটে থাকা অবস্থায় ওয়াক্ত অনুযায়ী নামাজের সুন্দর পপ-আপ রিমাইন্ডার পাবে
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const nextState = !namazEnabled;
+                  setNamazEnabled(nextState);
+                  setReminderEnabled(nextState);
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                  namazEnabled
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700'
+                }`}
+              >
+                <Bell className="w-3.5 h-3.5" />
+                <span>{namazEnabled ? 'রিমাইন্ডার চালু আছে' : 'রিমাইন্ডার বন্ধ আছে'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Today's Waqt Schedule Cards */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                আজকের নামাজের সময়সূচি (লাইভ ওয়াক্ত)
+              </span>
+              {prayerSchedule.currentPrayer && (
+                <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  এখন চলছে: {prayerSchedule.currentPrayer.banglaName} ওয়াক্ত ({prayerSchedule.currentPrayer.formattedTime})
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {[
+                { name: 'ফজর', time: prayerSchedule.fajr, key: 'fajr' },
+                { name: 'সূর্যোদয়', time: prayerSchedule.sunrise, key: 'sunrise' },
+                { name: 'যোহর', time: prayerSchedule.dhuhr, key: 'dhuhr' },
+                { name: 'আসর', time: prayerSchedule.asr, key: 'asr' },
+                { name: 'মাগরিব', time: prayerSchedule.maghrib, key: 'maghrib' },
+                { name: 'এশা', time: prayerSchedule.isha, key: 'isha' },
+              ].map((item) => {
+                const isActive = prayerSchedule.currentPrayer?.key === item.key;
+                return (
+                  <div
+                    key={item.key}
+                    className={`p-3.5 rounded-2xl border transition-all ${
+                      isActive
+                        ? 'bg-emerald-950/70 border-emerald-500 text-white shadow-md shadow-emerald-900/20 ring-1 ring-emerald-500/40'
+                        : 'bg-slate-900 border-slate-800 text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold">{item.name}</span>
+                      {isActive && (
+                        <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.2 rounded-full">
+                          চলছে
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-base font-bold mt-1 font-mono ${isActive ? 'text-emerald-300' : 'text-slate-100'}`}>
+                      {formatBengaliTime(item.time)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Test & Preview Section */}
+          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>⚡ পপ-আপ রিমাইন্ডার টেস্ট করুন</span>
+                <span className="text-[10px] text-amber-400 bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded-md">
+                  লাইভ প্রিভিউ
+                </span>
+              </h4>
+              <p className="text-xs text-slate-400">
+                যে কোনো বাটনে ক্লিক করে ওয়েবসাইট ভিজিটরদের সামনে যেভাবে নোটিফিকেশন আসবে তা এখনই পরীক্ষা করে দেখতে পারেন:
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2.5 pt-1">
+              {[
+                { label: 'যোহরের রিমাইন্ডার টেস্ট', key: 'dhuhr' as PrayerName },
+                { label: 'আসরের রিমাইন্ডার টেস্ট', key: 'asr' as PrayerName },
+                { label: 'মাগরিবের রিমাইন্ডার টেস্ট', key: 'maghrib' as PrayerName },
+                { label: 'এশার রিমাইন্ডার টেস্ট', key: 'isha' as PrayerName },
+                { label: 'ফজরের রিমাইন্ডার টেস্ট', key: 'fajr' as PrayerName },
+              ].map((btn) => (
+                <button
+                  key={btn.key}
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(
+                      new CustomEvent('test-prayer-reminder', { detail: { prayer: btn.key } })
+                    );
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-emerald-700 hover:text-white border border-slate-700 hover:border-emerald-600 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <span>🕌</span>
+                  <span>{btn.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Smart UX details */}
+            <div className="pt-3 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-400">
+              <div className="space-y-1">
+                <span className="font-semibold text-slate-200">১. স্মার্ট ফ্রিকোয়েন্সি</span>
+                <p className="text-[11px] leading-relaxed">
+                  একজন শিক্ষার্থী একবার উত্তর দিলে ("পড়েছি" বা "এখন পড়ব") সেই ওয়াক্তে আর দ্বিতীয়বার পপ-আপ আসবে না।
+                </p>
+              </div>
+              <div className="space-y-1">
+                <span className="font-semibold text-slate-200">২. স্নুজ সুবিধা</span>
+                <p className="text-[11px] leading-relaxed">
+                  "১০ মিনিট পর মনে করিয়ে দাও" দিলে ঠিক ১০ মিনিট পর মার্জিতভাবে আবার পপ-আপ আসবে।
+                </p>
+              </div>
+              <div className="space-y-1">
+                <span className="font-semibold text-slate-200">৩. সম্পূর্ণ ঐচ্ছিক</span>
+                <p className="text-[11px] leading-relaxed">
+                  ইউজার চাইলে নোটিফিকেশন থেকেই রিমাইন্ডার মিউট করতে পারবে, জোর করার কোনো বিষয় নেই।
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

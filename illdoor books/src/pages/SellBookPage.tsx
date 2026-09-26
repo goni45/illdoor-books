@@ -3,7 +3,7 @@ import { BookOpen, CheckCircle2, Home, Layers3, MapPin, Search, ShoppingBag } fr
 import { useMarketplace } from '../context/MarketplaceContext';
 import { useSemesterBundles, type BundleDraft } from '../hooks/useSemesterBundles';
 import type { BookListing, Condition, PickupType, Publication } from '../types';
-import { CONDITIONS } from '../data/mockData';
+import { CONDITIONS, DEPARTMENTS } from '../data/mockData';
 import { Button } from '../components/common/Button';
 import { getPublicationCover } from '../lib/publicationEditions';
 
@@ -27,6 +27,7 @@ export const SellBookPage: React.FC = () => {
   const [mode, setMode] = useState<'single' | 'semester'>('single');
   const [query, setQuery] = useState('');
   const [modelId, setModelId] = useState('');
+  const [selectedDept, setSelectedDept] = useState(currentUser.department || 'Computer Science & Technology');
   const [condition, setCondition] = useState<Condition>('Good');
   const [publication, setPublication] = useState<Publication>('Haque Publication');
   const [details, setDetails] = useState('');
@@ -41,7 +42,13 @@ export const SellBookPage: React.FC = () => {
   const [error, setError] = useState('');
   const [done, setDone] = useState<{ type: 'single' | 'semester'; id?: string; count?: number } | null>(null);
 
-  const department = currentUser.department;
+  const department = selectedDept;
+
+  useEffect(() => {
+    if (currentUser.department) {
+      setSelectedDept(currentUser.department);
+    }
+  }, [currentUser.department]);
   const departmentBooks = useMemo(() => books.filter((book) =>
     (book.curriculumEntries ?? []).some((entry) => normalize(entry.department) === normalize(department)) ||
     normalize(book.department) === normalize(department)), [books, department]);
@@ -58,6 +65,34 @@ export const SellBookPage: React.FC = () => {
   useEffect(() => { if (!pickupId && pickupPoints[0]) setPickupId(pickupPoints[0].id); }, [pickupId, pickupPoints]);
   useEffect(() => {
     if (!prefillSellData || books.length === 0) return;
+
+    if (prefillSellData.mode === 'semester' || prefillSellData.subjectCode === 'FULL SET') {
+      setMode('semester');
+      if (prefillSellData.semester) {
+        const targetSem = prefillSellData.semester;
+        setSelectedSemesters([targetSem]);
+        setSemesterDrafts((current) => {
+          if (current[targetSem]) return current;
+          const items = booksForSemester(targetSem).map((book) => ({
+            book,
+            publication: book.publication || 'Haque Publication',
+            condition: 'Good' as Condition,
+            conditionDetails: '',
+          }));
+          return {
+            ...current,
+            [targetSem]: {
+              originalPrice: Math.max(1, items.length * 500),
+              sellingPrice: prefillSellData.sellingPrice || Math.max(1, items.length * 300),
+              items,
+            },
+          };
+        });
+      }
+      setPrefillSellData(null);
+      return;
+    }
+
     const target = books.find((book) => book.id === prefillSellData.id || (prefillSellData.subjectCode && book.subjectCode === prefillSellData.subjectCode));
     if (!target) return;
     setMode('single');
@@ -65,7 +100,7 @@ export const SellBookPage: React.FC = () => {
     setPublication(target.publication || 'Haque Publication');
     if (prefillSellData.sellingPrice) setSellingPrice(prefillSellData.sellingPrice);
     setPrefillSellData(null);
-  }, [books, prefillSellData, setPrefillSellData]);
+  }, [books, prefillSellData, setPrefillSellData, departmentBooks]);
 
   const booksForSemester = (semester: string) => departmentBooks.filter((book) =>
     (book.curriculumEntries ?? []).some((entry) => normalize(entry.department) === normalize(department) && entry.semester === semester) ||
@@ -181,7 +216,21 @@ export const SellBookPage: React.FC = () => {
     </header>
 
     {mode === 'single' ? <form onSubmit={submitSingle} className="bg-white rounded-3xl border p-6 space-y-5">
-      <div><label className="text-xs font-bold uppercase">আপনার টেকনোলজি / বিভাগ</label><p className="font-semibold">{department || 'প্রোফাইলে বিভাগ উল্লেখ নেই'}</p></div>
+      <div>
+        <label className="text-xs font-bold uppercase text-neutral-500 block mb-1">আপনার টেকনোলজি / বিভাগ</label>
+        <select
+          value={selectedDept}
+          onChange={(e) => {
+            setSelectedDept(e.target.value);
+            setModelId('');
+          }}
+          className="w-full p-3 rounded-xl border border-neutral-200 text-sm font-semibold text-[#0b0f1a] bg-neutral-50 focus:bg-white focus:outline-none focus:border-[#ef4d23]"
+        >
+          {DEPARTMENTS.filter((d) => d !== 'All Departments').map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
+      </div>
       <div className="relative"><Search className="absolute left-3 top-3.5 w-4 text-neutral-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="বিষয়ের নাম বা কোড দিয়ে খুঁজুন" className="w-full pl-10 p-3 rounded-xl border" /></div>
       <select value={modelId} onChange={(e) => { setModelId(e.target.value); setPublication(books.find((book) => book.id === e.target.value)?.publication || 'Haque Publication'); }} className="w-full p-3 rounded-xl border"><option value="">বিষয় নির্বাচন করুন</option>{matches.map((book) => <option key={book.id} value={book.id}>{book.subjectCode} — {book.title}</option>)}</select>
       {selected && <div className="p-4 rounded-2xl bg-[#f5f2ee] flex gap-3"><img src={getPublicationCover(selected, publication)} className="w-16 h-20 object-cover rounded-lg" alt="" /><div><b>{selected.title}</b><p className="text-xs">{selected.subjectCode}</p></div></div>}
@@ -274,9 +323,27 @@ export const SellBookPage: React.FC = () => {
           </div>
         )}
       </div>
-      {error && <p className="text-sm text-rose-600">{error}</p>}<Button type="submit" disabled={busy || !modelId}>{busy ? 'প্রকাশ হচ্ছে…' : 'একক বই লিস্টিং প্রকাশ করুন'}</Button>
+      {error && <p className="text-sm text-rose-600 font-medium">{error}</p>}
+      <Button type="submit" disabled={busy || !modelId}>{busy ? 'প্রকাশ হচ্ছে…' : 'একক বই লিস্টিং প্রকাশ করুন'}</Button>
     </form> : <form onSubmit={submitBundles} className="space-y-5">
-      <section className="bg-white rounded-3xl border p-6 space-y-4"><div><p className="text-xs font-bold uppercase">বিভাগ / টেকনোলজি</p><h2 className="text-xl font-bold">{department || 'প্রথমে প্রোফাইল সম্পন্ন করুন'}</h2><p className="text-sm text-neutral-500">এক বা একাধিক সেমিস্টার নির্বাচন করুন।</p></div>
+      <section className="bg-white rounded-3xl border p-6 space-y-4">
+        <div>
+          <label className="text-xs font-bold uppercase text-neutral-500 block mb-1">বিভাগ / টেকনোলজি</label>
+          <select
+            value={selectedDept}
+            onChange={(e) => {
+              setSelectedDept(e.target.value);
+              setSelectedSemesters([]);
+              setSemesterDrafts({});
+            }}
+            className="w-full sm:w-auto min-w-[280px] p-2.5 rounded-xl border border-neutral-200 text-sm font-semibold text-[#0b0f1a] bg-neutral-50 focus:bg-white focus:outline-none focus:border-[#ef4d23] mb-2 cursor-pointer"
+          >
+            {DEPARTMENTS.filter((d) => d !== 'All Departments').map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+          <p className="text-sm text-neutral-500">এক বা একাধিক সেমিস্টার নির্বাচন করুন।</p>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{semesters.map((semester) => <button type="button" key={semester} onClick={() => toggleSemester(semester)} className={`p-3 rounded-xl border text-sm font-semibold cursor-pointer ${selectedSemesters.includes(semester) ? 'bg-[#0b0f1a] text-white' : 'bg-white'}`}>{semester}</button>)}</div>
         <div className="space-y-3 pt-2">
           <label className="text-xs font-semibold text-neutral-500 block">বই হস্তান্তরের মাধ্যম / পিকআপ অপশন</label>

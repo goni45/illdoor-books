@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import type { SignUpData } from '../hooks/useAuth';
 import {
   User, Mail, Lock, Phone, BookOpen, GraduationCap,
-  Building2, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ArrowRight, X, Calendar
+  Building2, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ArrowRight, X, Calendar, MessageCircle
 } from 'lucide-react';
 
 const INSTITUTES = [
@@ -177,6 +177,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     semester: SEMESTERS[0],
     session: SESSIONS[0],
     phone: '',
+    whatsappPhone: '',
   });
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -215,6 +216,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
     if (!regData.studentRoll.trim()) {
       setLocalError('শিক্ষার্থী রোল নম্বর আবশ্যক।');
+      return;
+    }
+    const phoneClean = (regData.phone || '').trim();
+    const whatsappClean = (regData.whatsappPhone || '').trim();
+    if (!phoneClean) {
+      setLocalError('মোবাইল নম্বর প্রদান করা আবশ্যক।');
+      return;
+    }
+    if (!/^(\+?88)?01[3-9]\d{8}$/.test(phoneClean.replace(/[\s-]/g, ''))) {
+      setLocalError('সঠিক বাংলাদেশী মোবাইল নম্বর লিখুন (যেমন: 017XXXXXXXX)।');
+      return;
+    }
+    if (!whatsappClean) {
+      setLocalError('হোয়াটসঅ্যাপ (WhatsApp) নম্বর প্রদান করা আবশ্যক।');
+      return;
+    }
+    if (!/^(\+?88)?01[3-9]\d{8}$/.test(whatsappClean.replace(/[\s-]/g, ''))) {
+      setLocalError('সঠিক বাংলাদেশী হোয়াটসঅ্যাপ নম্বর লিখুন (যেমন: 017XXXXXXXX)।');
       return;
     }
     const { error } = await signUp(regData);
@@ -390,7 +409,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   <InputField
                     icon={<BookOpen className="w-4 h-4" />}
-                    label="রোল / স্টুডেন্ট ID"
+                    label="রোল / স্টুডেন্ট ID *"
                     id="reg-roll"
                     value={regData.studentRoll}
                     onChange={(v) => setRegData((p) => ({ ...p, studentRoll: v }))}
@@ -399,13 +418,48 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   />
                   <InputField
                     icon={<Phone className="w-4 h-4" />}
-                    label="মোবাইল নম্বর"
+                    label="মোবাইল নম্বর *"
                     id="reg-phone"
                     type="tel"
                     value={regData.phone || ''}
-                    onChange={(v) => setRegData((p) => ({ ...p, phone: v }))}
+                    onChange={(v) => {
+                      setRegData((p) => ({
+                        ...p,
+                        phone: v,
+                        // If WhatsApp was empty or matching previous phone, keep sync easy
+                        whatsappPhone: (!p.whatsappPhone || p.whatsappPhone === p.phone) ? v : p.whatsappPhone,
+                      }));
+                    }}
                     placeholder="01XXXXXXXXX"
+                    required
                   />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <InputField
+                    icon={<MessageCircle className="w-4 h-4 text-emerald-600" />}
+                    label="হোয়াটসঅ্যাপ (WhatsApp) নম্বর *"
+                    id="reg-whatsapp"
+                    type="tel"
+                    value={regData.whatsappPhone || ''}
+                    onChange={(v) => setRegData((p) => ({ ...p, whatsappPhone: v }))}
+                    placeholder="01XXXXXXXXX"
+                    required
+                    rightElement={
+                      regData.phone && regData.whatsappPhone !== regData.phone ? (
+                        <button
+                          type="button"
+                          onClick={() => setRegData((p) => ({ ...p, whatsappPhone: p.phone }))}
+                          className="text-[11px] font-semibold text-[#ef4d23] hover:underline cursor-pointer bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200"
+                        >
+                          মোবাইল নম্বরই WhatsApp
+                        </button>
+                      ) : undefined
+                    }
+                  />
+                  <p className="text-[11px] text-neutral-500">
+                    বই কেনাবেচা বা রিকোয়েস্টে সহপাঠী শিক্ষার্থীরা এই নম্বরে সরাসরি চ্যাট করবেন।
+                  </p>
                 </div>
 
                 <SelectField

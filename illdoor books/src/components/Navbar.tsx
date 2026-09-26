@@ -72,7 +72,7 @@ export const Navbar: React.FC = () => {
     <nav
       ref={navRef}
       id="floating-nav-pill"
-      className="bg-white/95 backdrop-blur-md rounded-full shadow-sm border border-neutral-200/90 px-2.5 sm:px-4 py-1.5 sm:py-2 w-full max-w-[880px] relative z-40 sm:z-50 flex items-center justify-between select-none"
+      className="bg-white/95 backdrop-blur-md rounded-full shadow-sm border border-neutral-200/90 px-1.5 min-[360px]:px-2.5 sm:px-4 py-1 sm:py-2 w-full max-w-[880px] relative z-40 sm:z-50 flex items-center justify-between select-none"
     >
       {/* Logo: EXACTLY ONE ILLDOOR Animated Logo */}
       <button
@@ -80,7 +80,7 @@ export const Navbar: React.FC = () => {
         className="shrink-0 flex items-center pl-0.5 sm:pl-1 cursor-pointer focus:outline-none"
         aria-label="ILLDOOR Logo"
       >
-        <IlldoorLogo height={27} mobileHeight={21} />
+        <IlldoorLogo height={27} mobileHeight={18} />
       </button>
 
       {/* Desktop links */}
@@ -228,17 +228,17 @@ export const Navbar: React.FC = () => {
       </div>
 
       {/* Right cluster */}
-      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+      <div className="flex items-center gap-0.5 min-[360px]:gap-1 sm:gap-2 shrink-0">
         {/* Wishlist / ShoppingCart icon */}
         <button
           type="button"
           onClick={() => handleNavClick('wishlist')}
           aria-label="Wishlist and Saved Books"
-          className="relative flex items-center justify-center text-neutral-700 hover:text-neutral-900 w-8 h-8 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer"
+          className="relative flex items-center justify-center text-neutral-700 hover:text-neutral-900 w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer shrink-0"
         >
-          <ShoppingCart className="w-4 h-4" />
+          <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           {wishlistIds.length > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#ef4d23] text-white text-[10px] font-bold flex items-center justify-center">
+            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#ef4d23] text-white text-[9px] sm:text-[10px] font-bold flex items-center justify-center">
               {wishlistIds.length}
             </span>
           )}
@@ -261,18 +261,18 @@ export const Navbar: React.FC = () => {
           </button>
         )}
 
-        {/* Orange button */}
+        {/* Orange button (Sell Book) */}
         <button
           type="button"
           onClick={() => handleNavClick('sell')}
-          className="inline-flex items-center gap-1 sm:gap-1.5 bg-[#ef4d23] hover:bg-[#de3d13] text-white rounded-full pl-2.5 sm:pl-3 pr-1.5 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shadow-xs whitespace-nowrap"
+          className="inline-flex items-center gap-1 sm:gap-1.5 bg-[#ef4d23] hover:bg-[#de3d13] text-white rounded-full pl-2 sm:pl-3 pr-1 sm:pr-1.5 py-0.5 sm:py-1.5 text-[11px] sm:text-sm font-medium transition-colors cursor-pointer shadow-xs whitespace-nowrap shrink-0"
         >
           <span>
             <span className="hidden sm:inline">Sell Book</span>
             <span className="sm:hidden">Sell</span>
           </span>
-          <span className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-white/20 flex items-center justify-center">
-            <ChevronRight className="w-3 h-3 text-white" />
+          <span className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-white/20 flex items-center justify-center">
+            <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
           </span>
         </button>
 
@@ -281,22 +281,32 @@ export const Navbar: React.FC = () => {
           <button
             onClick={() => handleNavClick('profile')}
             title={`${currentUser.name} (${currentUser.department})`}
-            className="flex items-center cursor-pointer p-0.5 rounded-full border border-neutral-200 hover:border-neutral-300 transition-colors"
+            className="flex items-center cursor-pointer p-0.5 rounded-full border border-neutral-200 hover:border-neutral-300 transition-colors shrink-0"
           >
-            <UserAvatar
-              src={currentUser.avatar}
-              name={currentUser.name}
-              size="sm"
-              isVerified={currentUser.isVerified}
-            />
+            <div className="sm:hidden">
+              <UserAvatar
+                src={currentUser.avatar}
+                name={currentUser.name}
+                size="xs"
+                isVerified={currentUser.isVerified}
+              />
+            </div>
+            <div className="hidden sm:block">
+              <UserAvatar
+                src={currentUser.avatar}
+                name={currentUser.name}
+                size="sm"
+                isVerified={currentUser.isVerified}
+              />
+            </div>
           </button>
         ) : (
           <button
             type="button"
             onClick={() => openAuthModal('login')}
-            className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold text-neutral-800 hover:text-black bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-0.5 min-[360px]:gap-1 px-1.5 min-[360px]:px-2.5 sm:px-3 py-0.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold text-neutral-800 hover:text-black bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
-            <LogIn className="w-3.5 h-3.5 text-[#ef4d23]" />
+            <LogIn className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#ef4d23]" />
             <span>Login</span>
           </button>
         )}
@@ -307,9 +317,13 @@ export const Navbar: React.FC = () => {
           type="button"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           aria-label="Toggle menu"
-          className="md:hidden p-1.5 text-neutral-700 hover:text-neutral-900 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer ml-0.5"
+          className="md:hidden p-1 text-neutral-700 hover:text-neutral-900 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer shrink-0"
         >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          {mobileMenuOpen ? (
+            <X className="w-4.5 h-4.5 min-[360px]:w-5 min-[360px]:h-5" />
+          ) : (
+            <Menu className="w-4.5 h-4.5 min-[360px]:w-5 min-[360px]:h-5" />
+          )}
         </button>
       </div>
 
@@ -317,13 +331,13 @@ export const Navbar: React.FC = () => {
       {mobileMenuOpen && (
         <div
           id="mobile-dropdown"
-          className="absolute top-full left-0 right-0 mt-2 bg-white/98 backdrop-blur-md rounded-2xl shadow-xl border border-neutral-200/90 p-3 z-50 flex flex-col gap-2 text-[14px] animate-in fade-in slide-in-from-top-2 duration-150"
+          className="absolute top-full left-0 right-0 mt-2 bg-white/98 backdrop-blur-md rounded-2xl shadow-xl border border-neutral-200/90 p-2 sm:p-3 z-50 flex flex-col gap-1 sm:gap-1.5 text-xs sm:text-sm max-h-[calc(100vh-80px)] overflow-y-auto overscroll-contain animate-in fade-in slide-in-from-top-2 duration-150"
         >
           {/* User Quick Info or Login Banner */}
           {isAuthenticated ? (
             <div
               onClick={() => handleNavClick('profile')}
-              className="flex items-center gap-3 p-2 rounded-xl bg-neutral-50 cursor-pointer"
+              className="flex items-center gap-2.5 p-2 rounded-xl bg-neutral-50 cursor-pointer"
             >
               <UserAvatar
                 src={currentUser.avatar}
@@ -335,11 +349,11 @@ export const Navbar: React.FC = () => {
                 <p className="text-xs font-semibold text-neutral-900 truncate">
                   {currentUser.name}
                 </p>
-                <p className="text-[11px] text-neutral-500 truncate">
+                <p className="text-[10px] text-neutral-500 truncate">
                   {currentUser.department} • রোল #{currentUser.studentId}
                 </p>
               </div>
-              <span className="text-[11px] text-[#ef4d23] font-medium">Profile →</span>
+              <span className="text-[11px] text-[#ef4d23] font-medium shrink-0">Profile →</span>
             </div>
           ) : (
             <div
@@ -347,74 +361,86 @@ export const Navbar: React.FC = () => {
                 openAuthModal('login');
                 setMobileMenuOpen(false);
               }}
-              className="flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-[#ef4d23]/10 to-[#ff7a45]/10 border border-[#ef4d23]/20 cursor-pointer"
+              className="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-[#ef4d23]/10 to-[#ff7a45]/10 border border-[#ef4d23]/20 cursor-pointer"
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-full bg-[#ef4d23] text-white flex items-center justify-center font-bold text-xs">
-                  <LogIn className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-[#ef4d23] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                  <LogIn className="w-3 h-3" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-neutral-900">Login / Register</p>
-                  <p className="text-[10px] text-neutral-500">Buy & sell used books</p>
+                  <p className="text-xs font-bold text-neutral-900 leading-tight">Login / Register</p>
+                  <p className="text-[10px] text-neutral-500 leading-tight">Buy & sell used books</p>
                 </div>
               </div>
-              <span className="text-xs text-[#ef4d23] font-semibold">Login →</span>
+              <span className="text-xs text-[#ef4d23] font-semibold shrink-0">Login →</span>
             </div>
           )}
 
           <button
             onClick={() => handleNavClick('home')}
-            className="flex items-center justify-between px-3 py-2 rounded-xl text-neutral-900 font-medium hover:bg-neutral-50 transition-colors text-left cursor-pointer"
+            className="flex items-center justify-between px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-neutral-900 font-medium hover:bg-neutral-50 transition-colors text-left cursor-pointer"
           >
             <div className="flex items-center gap-2">
-              <Home className="w-4 h-4 text-neutral-500" />
+              <Home className="w-4 h-4 text-neutral-500 shrink-0" />
               <span>Home</span>
             </div>
-            <span className="w-[1.5px] h-[1.5px] bg-neutral-900 rounded-full" />
+            {activeView === 'home' && <span className="w-1.5 h-1.5 bg-[#ef4d23] rounded-full" />}
           </button>
 
           <button
             onClick={() => handleNavClick('browse')}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
+            className="flex items-center justify-between px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
           >
-            <Compass className="w-4 h-4 text-neutral-500" />
-            <span>Browse Books</span>
+            <div className="flex items-center gap-2">
+              <Compass className="w-4 h-4 text-neutral-500 shrink-0" />
+              <span>Browse Books</span>
+            </div>
+            {activeView === 'browse' && <span className="w-1.5 h-1.5 bg-[#ef4d23] rounded-full" />}
           </button>
 
           <button
             onClick={() => handleNavClick('semester-bundles')}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
+            className="flex items-center justify-between px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
           >
-            <BookOpen className="w-4 h-4 text-neutral-500" />
-            <span>Semester Bundles</span>
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-neutral-500 shrink-0" />
+              <span>Semester Bundles</span>
+            </div>
+            {activeView === 'semester-bundles' && <span className="w-1.5 h-1.5 bg-[#ef4d23] rounded-full" />}
           </button>
 
           <button
             onClick={() => handleNavClick('requests')}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
+            className="flex items-center justify-between px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
           >
-            <FileQuestion className="w-4 h-4 text-neutral-500" />
-            <span>Book Requests</span>
+            <div className="flex items-center gap-2">
+              <FileQuestion className="w-4 h-4 text-neutral-500 shrink-0" />
+              <span>Book Requests</span>
+            </div>
+            {activeView === 'requests' && <span className="w-1.5 h-1.5 bg-[#ef4d23] rounded-full" />}
           </button>
 
           <button
             onClick={() => handleNavClick('orders')}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
+            className="flex items-center justify-between px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
           >
-            <ShoppingBag className="w-4 h-4 text-neutral-500" />
-            <span>My Orders</span>
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4 text-neutral-500 shrink-0" />
+              <span>My Orders</span>
+            </div>
+            {activeView === 'orders' && <span className="w-1.5 h-1.5 bg-[#ef4d23] rounded-full" />}
           </button>
 
           <button
             onClick={() => handleNavClick('wishlist')}
-            className="flex items-center justify-between px-3 py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
+            className="flex items-center justify-between px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
           >
             <div className="flex items-center gap-2">
-              <Bookmark className="w-4 h-4 text-neutral-500" />
+              <Bookmark className="w-4 h-4 text-neutral-500 shrink-0" />
               <span>Wishlist</span>
             </div>
             {wishlistIds.length > 0 && (
-              <span className="text-xs bg-[#ef4d23] text-white font-bold px-2 py-0.5 rounded-full">
+              <span className="text-[10px] bg-[#ef4d23] text-white font-bold px-1.5 py-0.5 rounded-full">
                 {wishlistIds.length}
               </span>
             )}
@@ -422,26 +448,31 @@ export const Navbar: React.FC = () => {
 
           <button
             onClick={() => handleNavClick('notifications')}
-            className="flex items-center justify-between px-3 py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
+            className="flex items-center justify-between px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer"
           >
             <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4 text-neutral-500" />
+              <Bell className="w-4 h-4 text-neutral-500 shrink-0" />
               <span>Notifications</span>
             </div>
             {unreadNotificationCount > 0 && (
-              <span className="text-xs bg-[#ef4d23] text-white font-bold px-2 py-0.5 rounded-full">
+              <span className="text-[10px] bg-[#ef4d23] text-white font-bold px-1.5 py-0.5 rounded-full">
                 {unreadNotificationCount}
               </span>
             )}
           </button>
 
-          <button
-            onClick={() => handleNavClick('admin')}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer border-t border-neutral-100 pt-2"
-          >
-            <ShieldCheck className="w-4 h-4 text-neutral-500" />
-            <span>Admin Console</span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => handleNavClick('admin')}
+              className="flex items-center justify-between px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 font-medium transition-colors text-left cursor-pointer border-t border-neutral-100 pt-2"
+            >
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#ef4d23] shrink-0" />
+                <span>Admin Console</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold text-white bg-[#ef4d23] px-1.5 py-0.5 rounded-md">Admin</span>
+            </button>
+          )}
 
           {isAuthenticated && (
             <button
@@ -449,9 +480,9 @@ export const Navbar: React.FC = () => {
                 await signOut();
                 setMobileMenuOpen(false);
               }}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 font-medium transition-colors text-left cursor-pointer border-t border-neutral-100 pt-2"
+              className="flex items-center gap-2 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-red-600 hover:bg-red-50 font-medium transition-colors text-left cursor-pointer border-t border-neutral-100 pt-2"
             >
-              <LogOut className="w-4 h-4 text-red-500" />
+              <LogOut className="w-4 h-4 text-red-500 shrink-0" />
               <span>Log Out</span>
             </button>
           )}

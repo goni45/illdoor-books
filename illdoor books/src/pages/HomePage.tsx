@@ -142,7 +142,7 @@ export const HomePage: React.FC = () => {
         id="hero-container"
         className="relative w-full min-h-[660px] md:min-h-[820px] lg:min-h-[920px] overflow-hidden bg-[#d9d9d9] rounded-2xl sm:rounded-3xl flex flex-col justify-between shadow-sm select-none"
       >
-        {/* Background Video */}
+        {/* Background Video: Active on PC/Desktop (sm and up) */}
         <video
           id="hero-video"
           src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260424_064411_9e9d7f84-9277-41f4-ab10-59172d89e6be.mp4"
@@ -153,8 +153,29 @@ export const HomePage: React.FC = () => {
           playsInline
           preload="auto"
           disableRemotePlayback
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          className="hidden sm:block absolute inset-0 w-full h-full object-cover pointer-events-none"
         />
+
+        {/* Background Video: Active strictly in Phone/Mobile View */}
+        <div className="block sm:hidden absolute inset-0 w-full h-full pointer-events-none overflow-hidden">
+          <video
+            id="hero-mobile-video"
+            poster="/hero-video-mobile-poster.jpg"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            disableRemotePlayback
+            className="w-full h-full object-cover object-center pointer-events-none"
+          >
+            <source src="/hero-video-mobile.webm" type="video/webm" />
+            <source src="/hero%20video%20for%20mobile%20(1).webm" type="video/webm" />
+            <source src="/hero-video-mobile.mp4" type="video/mp4" />
+          </video>
+          {/* Subtle soft lighting overlay for navbar and text contrast */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20" />
+        </div>
 
         {/* Above the video: absolute inset-0 bg-white/10 overlay */}
         <div className="absolute inset-0 bg-white/10 pointer-events-none" />
@@ -162,7 +183,7 @@ export const HomePage: React.FC = () => {
         {/* Foreground content wrapper: relative z-10 */}
         <div className="relative z-10 flex-1 flex flex-col justify-between">
           {/* Navbar (floating pill) */}
-          <header className="relative z-30 sm:z-40 flex justify-center pt-3 sm:pt-6 px-2 sm:px-4 w-full">
+          <header className="relative z-30 sm:z-40 flex justify-center pt-2.5 sm:pt-6 px-1.5 min-[360px]:px-2.5 sm:px-4 w-full max-w-full">
             <Navbar />
           </header>
 
@@ -673,41 +694,59 @@ export const HomePage: React.FC = () => {
               {bookRequests
                 .filter((r) => r.status === 'open')
                 .slice(0, 3)
-                .map((req) => (
-                  <div
-                    key={req.id}
-                    className="bg-neutral-800/80 backdrop-blur-md rounded-2xl border border-neutral-700/80 p-4.5 flex flex-col justify-between hover:border-neutral-600 transition-colors"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-2.5">
-                        <span className="font-mono text-xs font-bold text-[#ef4d23] bg-[#ef4d23]/10 border border-[#ef4d23]/25 px-2 py-0.5 rounded-md">
-                          {req.subjectCode}
-                        </span>
-                        {req.maxBudget != null && (
-                          <span className="text-xs font-bold text-neutral-200">
-                            বাজেট: ৳{req.maxBudget}
-                          </span>
-                        )}
+                .map((req) => {
+                  const isBundle = req.requestType === 'full_semester' || req.subjectCode === 'FULL SET';
+                  return (
+                    <div
+                      key={req.id}
+                      className={`bg-neutral-800/80 backdrop-blur-md rounded-2xl border p-4.5 flex flex-col justify-between transition-colors ${
+                        isBundle ? 'border-orange-500/40 hover:border-orange-500' : 'border-neutral-700/80 hover:border-neutral-600'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          {isBundle ? (
+                            <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md">
+                              <Layers3 className="w-3 h-3" />
+                              <span>সেমিস্টার সেট</span>
+                            </span>
+                          ) : (
+                            <span className="font-mono text-xs font-bold text-[#ef4d23] bg-[#ef4d23]/10 border border-[#ef4d23]/25 px-2 py-0.5 rounded-md">
+                              {req.subjectCode}
+                            </span>
+                          )}
+                          {req.maxBudget != null && (
+                            <span className="text-xs font-bold text-neutral-200">
+                              বাজেট: ৳{req.maxBudget}
+                            </span>
+                          )}
+                        </div>
+
+                        <h4 className="font-bold text-sm text-white line-clamp-2 mb-1.5">
+                          {req.title}
+                        </h4>
+
+                        <p className="text-[11px] text-neutral-400 mb-3">
+                          {req.department} • {req.semester}
+                        </p>
                       </div>
 
-                      <h4 className="font-bold text-sm text-white line-clamp-2 mb-1.5">
-                        {req.title}
-                      </h4>
-
-                      <p className="text-[11px] text-neutral-400 mb-3">
-                        {req.department} • {req.semester}
-                      </p>
+                      <button
+                        onClick={() => startSellForRequest(req)}
+                        className={`w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-white text-xs font-semibold transition-colors cursor-pointer ${
+                          isBundle ? 'bg-[#ef4d23] hover:bg-[#d93f17]' : 'bg-[#ef4d23] hover:bg-[#d93f17]'
+                        }`}
+                      >
+                        <span>
+                          {isBundle
+                            ? 'আমার কাছে এই সেট আছে (বিক্রি করুন)'
+                            : 'আমার কাছে এই বই আছে (বিক্রি করুন)'}
+                        </span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
                     </div>
-
-                    <button
-                      onClick={() => startSellForRequest(req)}
-                      className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#ef4d23] hover:bg-[#d93f17] text-white text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      <span>আমার কাছে এই বই আছে (বিক্রি করুন)</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           ) : (
             <div className="bg-neutral-800/60 rounded-2xl border border-neutral-700/60 p-6 text-center relative z-10">

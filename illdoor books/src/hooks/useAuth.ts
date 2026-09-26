@@ -21,6 +21,7 @@ export interface SignUpData {
   semester: string;
   session?: string;
   phone?: string;
+  whatsappPhone?: string;
 }
 
 /** Converts a Supabase profile row → app's StudentUser type */
@@ -99,7 +100,10 @@ export function useAuth() {
   const signUp = useCallback(async (data: SignUpData): Promise<{ error: string | null }> => {
     setAuthState((prev) => ({ ...prev, loading: true, error: null }));
 
-    const { error } = await supabase.auth.signUp({
+    const phoneClean = data.phone?.trim() || '';
+    const whatsappClean = data.whatsappPhone?.trim() || phoneClean;
+
+    const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
       options: {
@@ -110,7 +114,11 @@ export function useAuth() {
           department: data.department,
           semester: data.semester,
           session: data.session || null,
-          phone: data.phone || null,
+          phone: phoneClean || null,
+          contact_phone: phoneClean || null,
+          whatsapp_phone: whatsappClean || null,
+          contact_enabled: true,
+          preferred_contact_method: 'both',
         },
       },
     });
@@ -118,6 +126,24 @@ export function useAuth() {
     if (error) {
       setAuthState((prev) => ({ ...prev, loading: false, error: error.message }));
       return { error: error.message };
+    }
+
+    // If profile already created or session returned, sync contact fields to profiles
+    if (authData.user?.id) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            phone: phoneClean || null,
+            contact_phone: phoneClean || null,
+            whatsapp_phone: whatsappClean || null,
+            contact_enabled: true,
+            preferred_contact_method: 'both',
+          })
+          .eq('id', authData.user.id);
+      } catch {
+        // Non-blocking fallback
+      }
     }
 
     setAuthState((prev) => ({ ...prev, loading: false, error: null }));

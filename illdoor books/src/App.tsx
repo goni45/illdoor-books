@@ -5,6 +5,8 @@ import { AuthPage } from './pages/AuthPage';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { BottomGlassNav } from './components/common/BottomGlassNav';
+import { TipJarWidget } from './components/TipJarWidget';
+import { PrayerReminderPopup } from './components/PrayerReminderPopup';
 import { HomePage } from './pages/HomePage';
 import { BrowsePage } from './pages/BrowsePage';
 import { Loader2, ShieldAlert } from 'lucide-react';
@@ -170,7 +172,7 @@ const MarketplaceContent: React.FC = () => {
   const isAdminPath = location.pathname.startsWith('/admin');
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#ededed] text-[#0b0f1a] font-sans antialiased relative overflow-x-hidden p-2.5 sm:p-4">
+    <div className="min-h-screen flex flex-col bg-[#ededed] text-[#0b0f1a] font-sans antialiased relative overflow-x-hidden p-1.5 min-[360px]:p-2.5 sm:p-4">
       {/* Scroll restoration and query redirect handler */}
       <ScrollManager />
       <LegacyQueryRedirector />
@@ -182,7 +184,7 @@ const MarketplaceContent: React.FC = () => {
 
       {/* Floating Modern Navbar (only on sub-pages; home has it in the hero) */}
       {!isHome && (
-        <header className="relative z-40 sm:z-50 flex justify-center w-full mb-4 sm:mb-6 pointer-events-none">
+        <header className="relative z-40 sm:z-50 flex justify-center w-full mb-3 sm:mb-6 pointer-events-none px-0.5 min-[360px]:px-1 sm:px-2">
           <div className="w-full flex justify-center pointer-events-auto">
             <Navbar />
           </div>
@@ -242,6 +244,12 @@ const MarketplaceContent: React.FC = () => {
 
       {/* Bottom Floating Glass Navigation Dock */}
       <BottomGlassNav />
+
+      {/* Floating iPhone Tip Jar Widget */}
+      <TipJarWidget />
+
+      {/* Islamic Prayer Times Reminder Popup */}
+      <PrayerReminderPopup />
 
       {/* Footer */}
       {!isAdminPath && (

@@ -33,7 +33,30 @@ export const SemesterBundlesPage: React.FC = () => {
 
     {loading ? <div className="p-10 text-center">সেমিস্টার বান্ডেল লোড হচ্ছে…</div>
       : error ? <div className="p-6 rounded-2xl bg-amber-50 text-amber-800">ডাটাবেজ সমস্যা: {error}</div>
-      : visibleBundles.length === 0 ? <div className="bg-white rounded-3xl border p-10 text-center"><Layers3 className="mx-auto text-neutral-300 w-12 h-12" /><h2 className="font-bold mt-3">আপনার ইনস্টিটিউট থেকে এখনো কোনো সেমিস্টার বান্ডেল যুক্ত হয়নি</h2></div>
+      : visibleBundles.length === 0 ? (
+          !user ? (
+            <div className="bg-white rounded-3xl border border-[#e5e5e5] p-8 sm:p-10 text-center space-y-4 max-w-md mx-auto my-6 shadow-sm">
+              <div className="w-14 h-14 rounded-2xl bg-[#ef4d23]/10 text-[#ef4d23] flex items-center justify-center mx-auto">
+                <Layers3 className="w-7 h-7" />
+              </div>
+              <h2 className="text-xl font-bold text-[#0b0f1a]">সেমিস্টার বান্ডেল দেখতে লগইন করুন</h2>
+              <p className="text-sm text-neutral-500">
+                আপনার ক্যাম্পাস ও বিভাগের সহপাঠীদের পোস্ট করা সম্পূর্ণ সেমিস্টার সেটগুলো দেখতে অ্যাকাউন্টে লগইন করুন।
+              </p>
+              <div className="pt-2 flex justify-center">
+                <Button onClick={() => openAuthModal('login', 'সেমিস্টার বান্ডেল দেখতে লগইন করুন')}>
+                  লগইন করুন (Login)
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl border border-[#e5e5e5] p-10 text-center">
+              <Layers3 className="mx-auto text-neutral-300 w-12 h-12" />
+              <h2 className="font-bold mt-3 text-neutral-800">আপনার ইনস্টিটিউট থেকে এখনো কোনো সেমিস্টার বান্ডেল যুক্ত হয়নি</h2>
+              <p className="text-xs text-neutral-500 mt-1">আপনি চাইলে প্রথম শিক্ষার্থী হিসেবে পুরো সেমিস্টারের বই সেট বিক্রির জন্য প্রকাশ করতে পারেন।</p>
+            </div>
+          )
+        )
       : <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">{visibleBundles.map((bundle) => <article key={bundle.id} className="bg-white rounded-3xl border overflow-hidden">
         <div className="p-5 bg-gradient-to-br from-orange-50 to-white border-b">
           <div className="flex justify-between gap-2"><span className="px-3 py-1 rounded-full bg-[#0b0f1a] text-white text-xs font-bold">সম্পূর্ণ সেমিস্টার সেট</span><span className="text-xs font-semibold">{bundle.availability}</span></div>

@@ -5,7 +5,7 @@ interface UserAvatarProps {
   src?: string;
   avatarUrl?: string;
   name: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   isVerified?: boolean;
 }
 
@@ -27,6 +27,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
     .toUpperCase();
 
   const sizeClasses = {
+    xs: 'w-6 h-6 text-[10px]',
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-sm',
     lg: 'w-14 h-14 text-base',
@@ -34,6 +35,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   };
 
   const badgeSizeClasses = {
+    xs: 'w-2.5 h-2.5 -bottom-0.5 -right-0.5 p-0.5',
     sm: 'w-3.5 h-3.5 -bottom-0.5 -right-0.5 p-0.5',
     md: 'w-4 h-4 -bottom-0.5 -right-0.5 p-0.5',
     lg: 'w-5 h-5 bottom-0 right-0 p-1',

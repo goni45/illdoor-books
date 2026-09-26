@@ -285,6 +285,14 @@ function mapDbOrderToOrder(row: Record<string, unknown>, book: BookListing, buye
 function mapDbBookRequest(row: Record<string, unknown>): BookRequest {
   const prof = (row.profile ?? {}) as Record<string, unknown>;
   const createdAt = row.created_at as string;
+  const isFullSemester =
+    row.request_type === 'full_semester' ||
+    row.subject_code === 'FULL SET' ||
+    (typeof row.title === 'string' && (row.title.includes('সম্পূর্ণ সেমিস্টার') || row.title.includes('বুক সেট')));
+
+  const rawPhone = (prof.contact_phone as string) || (prof.phone as string) || '';
+  const rawWhatsapp = (prof.whatsapp_phone as string) || (prof.contact_phone as string) || (prof.phone as string) || '';
+
   return {
     id: row.id as string,
     requesterId: row.requester_id as string,
@@ -292,12 +300,19 @@ function mapDbBookRequest(row: Record<string, unknown>): BookRequest {
     requesterAvatar: (prof.avatar_url as string) ||
       ('https:' + '//api.dicebear.com/8.x/initials/svg?seed=' + encodeURIComponent((prof.full_name as string) || 'Student') + '&backgroundColor=ef4d23'),
     requesterDepartment: (prof.department as string) || '',
+    requesterInstitute: (prof.institute as string) || '',
+    requesterPhone: rawPhone || undefined,
+    requesterWhatsapp: rawWhatsapp || undefined,
+    requesterRoll: (prof.student_roll as string) || undefined,
+    requestType: isFullSemester ? 'full_semester' : ((row.request_type as 'single_book' | 'full_semester') || 'single_book'),
     title: row.title as string,
-    subjectCode: row.subject_code as string,
+    subjectCode: (row.subject_code as string) || (isFullSemester ? 'FULL SET' : ''),
     department: row.department as string,
     semester: row.semester as string,
     maxBudget: row.max_budget != null ? Number(row.max_budget) : undefined,
     description: (row.description as string) || '',
+    preferredPublication: (row.preferred_publication as string) || undefined,
+    expectedBookCount: row.expected_book_count != null ? Number(row.expected_book_count) : undefined,
     status: (row.status as 'open' | 'fulfilled' | 'cancelled') || 'open',
     fulfilledByListingId: (row.fulfilled_by_listing_id as string) || undefined,
     createdAt: createdAt ? new Date(createdAt).toLocaleDateString('en-BD', { month: 'short', day: 'numeric' }) : '',
@@ -369,20 +384,29 @@ interface MarketplaceContextType {
   // ── Book requests ────────────────────────────────────────────────────────
   bookRequests: BookRequest[];
   loadingRequests: boolean;
-  prefillSellData: Partial<BookListing> | null;
-  setPrefillSellData: (data: Partial<BookListing> | null) => void;
+  prefillSellData: (Partial<BookListing> & { mode?: 'single' | 'semester' }) | null;
+  setPrefillSellData: (data: (Partial<BookListing> & { mode?: 'single' | 'semester' }) | null) => void;
   refreshBookRequests: () => Promise<void>;
   createBookRequest: (data: {
     title: string;
     subjectCode: string;
     department: string;
     semester: string;
+    requestType?: 'single_book' | 'full_semester';
+    preferredPublication?: string;
+    expectedBookCount?: number;
     maxBudget?: number;
     description?: string;
   }) => Promise<{ success: boolean; message: string; id?: string }>;
   cancelBookRequest: (requestId: string) => Promise<{ success: boolean; message: string }>;
   fulfillBookRequest: (requestId: string, bookId?: string) => Promise<{ success: boolean; message: string }>;
   startSellForRequest: (request: BookRequest) => void;
+  revealRequesterContact: (requestId: string) => Promise<{
+    success: boolean;
+    phone?: string;
+    whatsapp?: string;
+    message?: string;
+  }>;
 
   /** True when the signed-in profile has the is_admin flag */
   isAdmin: boolean;
@@ -529,7 +553,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [verificationQueue, setVerificationQueue] = useState<VerificationRequest[]>([]);
   const [bookRequests, setBookRequests] = useState<BookRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
-  const [prefillSellData, setPrefillSellData] = useState<Partial<BookListing> | null>(null);
+  const [prefillSellData, setPrefillSellData] = useState<(Partial<BookListing> & { mode?: 'single' | 'semester' }) | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
 
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
@@ -573,7 +597,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
           : (book.offers ?? []),
       ));
     setBooks(mapped);
-  }, [profile?.institute,isAdmin]);
+  }, [profile?.institute, profile?.department, isAdmin]);
 
   // ── Fetch orders ─────────────────────────────────────────────────────────
   const refreshOrders = useCallback(async () => {
@@ -747,10 +771,20 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const refreshBookRequests = useCallback(async () => {
     setLoadingRequests(true);
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('book_requests')
-        .select('*, profile:profiles!book_requests_requester_id_fkey(full_name, avatar_url, department, institute)')
+        .select('*, profile:profiles!book_requests_requester_id_fkey(full_name, avatar_url, department, institute, phone, contact_phone, whatsapp_phone, student_roll)')
         .order('created_at', { ascending: false });
+
+      // Fallback if contact_phone/whatsapp_phone are locked by strict RLS
+      if (error && /permission|column|does not exist/i.test(error.message)) {
+        const fallbackRes = await supabase
+          .from('book_requests')
+          .select('*, profile:profiles!book_requests_requester_id_fkey(full_name, avatar_url, department, institute)')
+          .order('created_at', { ascending: false });
+        data = fallbackRes.data;
+        error = fallbackRes.error;
+      }
 
       if (error) {
         console.warn('Failed to fetch book requests:', error.message);
@@ -758,9 +792,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return;
       }
 
-      const institute = profile?.institute?.trim();
+      const institute = profile?.institute?.trim().toLowerCase();
       const visibleRows = institute
-        ? (data || []).filter((row) => (row.profile as { institute?: string } | null)?.institute === institute)
+        ? (data || []).filter((row) => (row.profile as { institute?: string } | null)?.institute?.trim().toLowerCase() === institute)
         : (data || []);
       setBookRequests(visibleRows.map((row) => mapDbBookRequest(row as unknown as Record<string, unknown>)));
     } catch (err) {
@@ -1287,6 +1321,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     subjectCode: string;
     department: string;
     semester: string;
+    requestType?: 'single_book' | 'full_semester';
+    preferredPublication?: string;
+    expectedBookCount?: number;
     maxBudget?: number;
     description?: string;
   }) => {
@@ -1295,20 +1332,54 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return { success: false, message: 'Not authenticated' };
     }
 
-    const { data: inserted, error } = await supabase
+    const payloadWithExtra: Record<string, unknown> = {
+      requester_id: user.id,
+      title: data.title.trim(),
+      subject_code: data.subjectCode.trim(),
+      department: data.department,
+      semester: data.semester,
+      request_type: data.requestType || 'single_book',
+      preferred_publication: data.preferredPublication || null,
+      expected_book_count: data.expectedBookCount || null,
+      max_budget: data.maxBudget || null,
+      description: data.description?.trim() || null,
+      status: 'open',
+    };
+
+    let { data: inserted, error } = await supabase
       .from('book_requests')
-      .insert({
+      .insert(payloadWithExtra)
+      .select('id')
+      .single();
+
+    // If the DB schema doesn't yet have the new columns, gracefully fallback to standard columns
+    if (error && /request_type|preferred_publication|expected_book_count/i.test(error.message)) {
+      const fallbackNotes = [
+        data.requestType === 'full_semester' ? '[সম্পূর্ণ সেমিস্টার সেট রিকোয়েস্ট]' : '',
+        data.preferredPublication ? `পছন্দের প্রকাশনী: ${data.preferredPublication}` : '',
+        data.description?.trim(),
+      ].filter(Boolean).join('\n');
+
+      const fallbackPayload = {
         requester_id: user.id,
         title: data.title.trim(),
         subject_code: data.subjectCode.trim(),
         department: data.department,
         semester: data.semester,
         max_budget: data.maxBudget || null,
-        description: data.description?.trim() || null,
+        description: fallbackNotes || null,
         status: 'open',
-      })
-      .select('id')
-      .single();
+      };
+
+      const fallbackRes = await supabase
+        .from('book_requests')
+        .insert(fallbackPayload)
+        .select('id')
+        .single();
+
+      inserted = fallbackRes.data;
+      error = fallbackRes.error;
+    }
 
     if (error) {
       const missingTable = /book_requests|schema cache|PGRST205/i.test(error.message);
@@ -1323,7 +1394,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     await refreshBookRequests();
     return {
       success: true,
-      message: 'Book request posted successfully! You will be notified when someone lists this book.',
+      message: data.requestType === 'full_semester'
+        ? 'সম্পূর্ণ সেমিস্টার সেটের অনুরোধ সফলভাবে পোস্ট হয়েছে!'
+        : 'বইয়ের অনুরোধ সফলভাবে পোস্ট হয়েছে!',
       id: inserted?.id,
     };
   }, [user, openAuthModal, refreshBookRequests]);
@@ -1359,16 +1432,83 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [user, refreshBookRequests]);
 
   const startSellForRequest = useCallback((req: BookRequest) => {
+    const isBundle = req.requestType === 'full_semester' || req.subjectCode === 'FULL SET';
     setPrefillSellData({
       title: req.title,
       subjectCode: req.subjectCode,
       department: req.department,
       semester: req.semester,
       sellingPrice: req.maxBudget || undefined,
+      mode: isBundle ? 'semester' : 'single',
     });
     setActiveView('sell');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [setActiveView]);
+
+  const revealRequesterContact = useCallback(async (requestId: string) => {
+    if (!user) {
+      openAuthModal('login', 'যোগাযোগের তথ্য দেখতে দয়া করে লগইন করুন');
+      return { success: false, message: 'লগইন প্রয়োজন' };
+    }
+
+    // First check if already in local state
+    const target = bookRequests.find((r) => r.id === requestId);
+    if (target?.requesterPhone || target?.requesterWhatsapp) {
+      return {
+        success: true,
+        phone: target.requesterPhone,
+        whatsapp: target.requesterWhatsapp,
+      };
+    }
+
+    // Try secure RPC
+    try {
+      const { data, error } = await supabase.rpc('open_requester_contact', {
+        p_request_id: requestId,
+      });
+
+      if (!error && data) {
+        const phone = data.contactPhone || undefined;
+        const whatsapp = data.whatsappPhone || undefined;
+
+        // Update local request record
+        setBookRequests((prev) =>
+          prev.map((r) =>
+            r.id === requestId ? { ...r, requesterPhone: phone, requesterWhatsapp: whatsapp } : r
+          )
+        );
+
+        return { success: true, phone, whatsapp };
+      }
+
+      if (error) {
+        const msg = error.message || '';
+        if (/same institute/i.test(msg)) {
+          return {
+            success: false,
+            message: 'শুধুমাত্র একই ইনস্টিটিউটের শিক্ষার্থীরা এই অনুরোধে যোগাযোগের নম্বর দেখতে পারবেন।',
+          };
+        }
+        if (/authentication/i.test(msg)) {
+          openAuthModal('login', 'যোগাযোগের তথ্য দেখতে দয়া করে লগইন করুন');
+          return { success: false, message: 'লগইন প্রয়োজন' };
+        }
+      }
+    } catch {
+      // Ignore network/RPC execution errors and fall through
+    }
+
+    // If current user is the owner of the request, allow seeing their own contact
+    if (target?.requesterId === user.id) {
+      const phone = currentUser.phone || undefined;
+      return { success: true, phone, whatsapp: phone };
+    }
+
+    return {
+      success: false,
+      message: 'শিক্ষার্থীর যোগাযোগের নম্বর খুঁজে পাওয়া যায়নি বা তিনি তা এখনো যুক্ত করেননি।',
+    };
+  }, [user, currentUser.phone, openAuthModal, bookRequests]);
 
   // ── Filters ─────────────────────────────────────────────────────────────
   const resetFilters = () => { setFilters(defaultFilters); setSearchQuery(''); };
@@ -1451,6 +1591,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     applyQuickSubjectSearch,
     bookRequests, loadingRequests, prefillSellData, setPrefillSellData,
     refreshBookRequests, createBookRequest, cancelBookRequest, fulfillBookRequest, startSellForRequest,
+    revealRequesterContact,
     filteredBooks, unreadNotificationCount,
     user, isAuthenticated, isAdmin,
     isAuthModalOpen, authModalTab, authModalMessage,
@@ -1467,6 +1608,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     fileDispute, resolveDispute, filters, searchQuery, applyQuickSubjectSearch,
     bookRequests, loadingRequests, prefillSellData,
     refreshBookRequests, createBookRequest, cancelBookRequest, fulfillBookRequest, startSellForRequest,
+    revealRequesterContact,
     filteredBooks, unreadNotificationCount, user, isAuthenticated, isAdmin,
     isAuthModalOpen, authModalTab, authModalMessage, openAuthModal, closeAuthModal, signOut
   ]);

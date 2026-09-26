@@ -281,18 +281,27 @@ export interface DisputeReport {
   priority: 'Low' | 'Medium' | 'High';
 }
 
+export type RequestType = 'single_book' | 'full_semester';
+
 export interface BookRequest {
   id: string;
   requesterId: string;
   requesterName: string;
   requesterAvatar?: string;
   requesterDepartment?: string;
+  requesterInstitute?: string;
+  requesterPhone?: string;
+  requesterWhatsapp?: string;
+  requesterRoll?: string;
+  requestType?: RequestType;
   title: string;
   subjectCode: string;
   department: string;
   semester: string;
   maxBudget?: number;
   description?: string;
+  preferredPublication?: string;
+  expectedBookCount?: number;
   status: 'open' | 'fulfilled' | 'cancelled';
   fulfilledByListingId?: string;
   createdAt: string;

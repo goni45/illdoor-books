@@ -29,8 +29,8 @@ export const NotificationsPage: React.FC = () => {
       navigateToOrder(notif.linkId);
     } else if (notif.linkRoute === 'book-details' && notif.linkId) {
       navigateToBook(notif.linkId);
-    } else if (notif.linkRoute === 'book-details' && notif.linkId) {
-      navigateToBook(notif.linkId);
+    } else if (notif.linkRoute === 'requests') {
+      setActiveView('requests');
     } else if (notif.linkRoute) {
       setActiveView(notif.linkRoute as any);
     }
