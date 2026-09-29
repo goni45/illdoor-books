@@ -6,6 +6,7 @@ import { ConditionBadge } from '../components/common/ConditionBadge';
 import { UserAvatar } from '../components/common/UserAvatar';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { useSemesterBundles } from '../hooks/useSemesterBundles';
+import { SEOHead } from '../components/common/SEOHead';
 import type { SemesterBundle, SemesterBundleItem } from '../types';
 
 export const SemesterBundlesPage: React.FC = () => {

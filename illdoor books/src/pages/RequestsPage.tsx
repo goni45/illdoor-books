@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { useMarketplace } from '../context/MarketplaceContext';
+import { SEOHead } from '../components/common/SEOHead';
 import { DEPARTMENTS, SEMESTERS } from '../data/mockData';
 import { UserAvatar } from '../components/common/UserAvatar';
 import { ContactRequesterModal } from '../components/ContactRequesterModal';

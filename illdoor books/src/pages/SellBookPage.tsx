@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { SEOHead } from '../components/common/SEOHead';
 import { BookOpen, CheckCircle2, Home, Layers3, MapPin, Search, ShoppingBag, Ban } from 'lucide-react';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { useSemesterBundles, type BundleDraft } from '../hooks/useSemesterBundles';
@@ -208,6 +209,7 @@ export const SellBookPage: React.FC = () => {
   };
 
   return <div className="max-w-4xl mx-auto space-y-6">
+    <SEOHead title="Sell Used Polytechnic Books in BD | বই বিক্রি করুন" description="পলিটেকনিকের পুরাতন বই বিক্রি করুন সহজেই। Sell your used diploma engineering books directly to junior students at your own price on Illdoor." canonicalPath="/sell" />
     <header className="bg-white rounded-3xl border p-6 space-y-4">
       <span className="text-xs font-bold text-[#ef4d23] uppercase">বই বিক্রি</span>
       <h1 className="text-2xl font-bold">আপনি কীভাবে বই বিক্রি করতে চান?</h1>

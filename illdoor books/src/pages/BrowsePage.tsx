@@ -6,6 +6,7 @@ import { SearchBar } from '../components/SearchBar';
 import { FilterPanel } from '../components/FilterPanel';
 import { BookCard } from '../components/BookCard';
 import { EmptyState } from '../components/common/EmptyState';
+import { SEOHead } from '../components/common/SEOHead';
 
 export const BrowsePage: React.FC = () => {
   const { filteredBooks, filters, setFilters, resetFilters } = useMarketplace();
@@ -60,8 +61,15 @@ export const BrowsePage: React.FC = () => {
     (filters.search ? 1 : 0);
 
 
+  const browseTitle = filters.department
+    ? `${filters.department} Polytechnic Used Books | BTEB Books`
+    : 'Browse Polytechnic Used Books | BTEB Diploma Books';
+  const browseDesc = filters.department
+    ? `পলিটেকনিক ${filters.department} টেকনোলজির ১ম থেকে ৮ম পর্বের ব্যবহৃত পাঠ্যবই খুঁজুন এবং সুলভ মূল্যে কিনুন বা বিক্রি করুন Illdoor-এ।`
+    : 'পলিটেকনিকের বিভিন্ন টেকনোলজি ও সেমিস্টারের ব্যবহৃত পাঠ্যবই খুঁজুন। Filter used books by department, semester, and publication on Illdoor.';
   return (
     <div className="space-y-6">
+      <SEOHead title={browseTitle} description={browseDesc} canonicalPath="/books" />
       {/* Top Search Area */}
       <div className="bg-white rounded-3xl border border-[#e5e5e5] p-4 sm:p-6 shadow-xs">
         <div className="max-w-2xl mx-auto text-center mb-3">

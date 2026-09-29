@@ -8,6 +8,7 @@ import { Button } from '../components/common/Button';
 import { ContactSellerModal } from '../components/ContactSellerModal';
 import type { SellerListing } from '../types';
 import { getPublicationCover } from '../lib/publicationEditions';
+import { SEOHead } from '../components/common/SEOHead';
 
 export const BookDetailsPage: React.FC = () => {
   const { bookId } = useParams<{ bookId: string }>();
@@ -35,6 +36,24 @@ export const BookDetailsPage: React.FC = () => {
   const choose = (o: SellerListing) => {
     if (!user) return openAuthModal('login', 'বিক্রেতার সাথে যোগাযোগ করতে লগইন করুন।');
     setOffer(o);
+  };
+
+  const lowestPrice = offers[0]?.sellingPrice;
+  const bookTitle = `${book.title} (${book.subjectCode}) - ${book.department} ${book.semester} Used Book`;
+  const bookDesc = `${book.title} (বিষয় কোড: ${book.subjectCode}), পলিটেকনিক ${book.department} টেকনোলজি ${book.semester} সেমিস্টারের পুরাতন বই। সর্বনিম্ন অফার: ${lowestPrice ? '৳' + lowestPrice : 'সুলভ মূল্যে'}। Illdoor-এ এখনই কিনুন বা বিক্রি করুন।`;
+  const bookSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": `${book.title} (${book.subjectCode})`,
+    "description": bookDesc,
+    "image": book.images?.[0] || book.commonCoverImageUrl || getPublicationCover(book),
+    "category": `${book.department} - ${book.semester}`,
+    "offers": lowestPrice ? {
+      "@type": "Offer",
+      "price": lowestPrice,
+      "priceCurrency": "BDT",
+      "availability": "https://schema.org/InStock"
+    } : undefined
   };
 
   const startSelling = () => {

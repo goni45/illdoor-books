@@ -17,6 +17,8 @@ import { useMarketplace, getBookListingRank } from '../context/MarketplaceContex
 import { Navbar } from '../components/Navbar';
 import { BookCard } from '../components/BookCard';
 import { PICKUP_POINTS } from '../data/mockData';
+import { SEOHead } from '../components/common/SEOHead';
+import { SEOHomeSection } from '../components/common/SEOHomeSection';
 import { useSemesterBundles } from '../hooks/useSemesterBundles';
 
 // Reusable SVG Gauge matching the reference design
@@ -74,6 +76,46 @@ const GaugeSvg: React.FC<{
       </text>
     </svg>
   );
+};
+
+
+const HOME_FAQ_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Illdoor-এ পলিটেকনিকের পুরাতন বই কীভাবে বিক্রি করব? (How to sell my books in BD)",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "আপনার মোবাইল নম্বর দিয়ে লগইন করে 'Sell Book' বাটনে ক্লিক করুন। বইয়ের ছবি, বিষয় কোড ও নির্ধারিত মূল্য দিয়ে পোস্ট করুন। আগ্রহী শিক্ষার্থীরা সরাসরি যোগাযোগ করে কিনবে।"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "পলিটেকনিকের কোন কোন ডিপার্টমেন্টের বই Illdoor-এ পাওয়া যায়?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "BTEB অনুমোদিত সকল ডিপার্টমেন্ট যেমন কম্পিউটার, সিভিল, ইলেকট্রিক্যাল, মেকানিক্যাল, ইলেকট্রনিক্স সহ ১ম থেকে ৮ম পর্বের হক ও টেকনিক্যাল প্রকাশনীর বই পাওয়া যায়।"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Illdoor কি বই কেনাবেচায় কোনো কমিশন বা চার্জ নেয়?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "না, Illdoor সম্পূর্ণ বিনামূল্যে পলিটেকনিক শিক্ষার্থীদের একে অপরের সাথে যুক্ত করে। এখানে বিজ্ঞাপন দেওয়া ও যোগাযোগ ১০০% ফ্রি।"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "সম্পূর্ণ সেমিস্টার বুক বান্ডিল কি পাওয়া যায়?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "হ্যাঁ, Semester Bundles সেকশনে সম্পূর্ণ সেমিস্টারের বই সেট সুলভ মূল্যে পাওয়া যায়।"
+      }
+    }
+  ]
 };
 
 export const HomePage: React.FC = () => {
@@ -817,6 +859,9 @@ export const HomePage: React.FC = () => {
             ))}
           </div>
         </section>
+
+        {/* SEO Knowledge, Department Directory & FAQ */}
+        <SEOHomeSection />
 
       </div>
     </div>
