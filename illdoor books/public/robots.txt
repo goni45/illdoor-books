@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://illdoor.vercel.app/sitemap.xml
